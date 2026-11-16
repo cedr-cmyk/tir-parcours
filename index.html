@@ -188,10 +188,14 @@ const CUMNAT={21:{Rouge:[525,550]}};
 const LS='tir-parcours-v1';
 function blankSettings(){return{bareme3D:[11,10,8,5],natureF1:[20,15],natureF2:[15,10],safari:[20,15],chronoOn:true,chrono3D:90,chronoN:45,chronoS:120,updatedAt:0}}
 function blank(){return{p:{},a:{},s:{},settings:blankSettings(),dirty:{},mig:2}}
-let S;
-try{S=JSON.parse(localStorage.getItem(LS))||blank()}catch(e){S=blank()}
-S=Object.assign(blank(),S,{mig:S&&S.mig||1});S.settings=Object.assign(blankSettings(),S.settings);
-function persist(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+// Chaque compte a ses propres données sur l'appareil (une tablette peut servir à plusieurs personnes)
+let S,LSU=LS;
+function loadStore(k){let d;try{d=JSON.parse(localStorage.getItem(k))||blank()}catch(e){d=blank()}
+  d=Object.assign(blank(),d,{mig:d&&d.mig||1});d.settings=Object.assign(blankSettings(),d.settings);return d}
+S=loadStore(LSU);
+function persist(){try{localStorage.setItem(LSU,JSON.stringify(S))}catch(e){}}
+function useStore(uid){const k=LS+(uid?'-'+uid:'');if(k===LSU)return;LSU=k;S=loadStore(k);if(S.mig<2)migrate();
+  try{MOI=JSON.parse(localStorage.getItem(LSU+'-moi'))}catch(e){MOI=null}MOI_LOADED=false}
 function put(kind,o){o.updatedAt=Date.now();S[kind][o.id]=o;S.dirty[kind+'-'+o.id]=1;persist();queueSync()}
 function putSettings(){S.settings.updatedAt=Date.now();S.dirty.settings=1;persist();queueSync()}
 const list=k=>Object.values(S[k]).filter(x=>!x.deleted);
@@ -240,13 +244,23 @@ window.addEventListener('online',()=>sync(true));
 setInterval(()=>{if(Object.keys(S.dirty).length)sync(false)},60000);
 async function login(){const em=$('#lem').value.trim(),pw=$('#lpw').value;if(!em||!pw){toast('E-mail et mot de passe');return}
   if(!SB){toast('Supabase non configuré (config.js)');return}
-  const{error}=await SB.auth.signInWithPassword({email:em,password:pw});if(error){toast(/invalid/i.test(error.message)?'E-mail ou mot de passe incorrect':'Connexion refusée : '+error.message);return}toast('Connecté');if(V.view==='login')go('home')}
-async function logout(){if(!SB)return;await SB.auth.signOut();USER=null;MOI=null;MOI_LOADED=false;try{localStorage.removeItem(LS+'-moi')}catch(e){}setSync('login');go('login')}
+  const{data:ld,error}=await SB.auth.signInWithPassword({email:em,password:pw});if(!error&&ld&&ld.user){USER=ld.user;useStore(USER.id)}if(error){toast(/invalid/i.test(error.message)?'E-mail ou mot de passe incorrect':'Connexion refusée : '+error.message);return}const code=($('#lcode')&&$('#lcode').value||'').trim().toUpperCase();
+  if(code){const{error:ce}=await SB.rpc('parcours_utiliser_code',{p_code:code});if(ce)toast('Connecté, mais code refusé : '+ce.message);else toast('Connecté et relié à votre fiche')}else toast('Connecté');
+  await aiguiller(true)}
+// Choisit l'écran d'arrivée : archer relié -> « Mes résultats », première fois -> page d'accueil, sinon l'appli normale
+const ownData=()=>list('p').length+list('a').length+list('s').length>0;
+const roleKey=()=>'tp-role-'+(USER?USER.id:'');
+async function aiguiller(force){if(!USER)return;await sync(true);await loadMoi(true);
+  if(!force&&V.view!=='home'&&V.view!=='login')return;
+  if(MOI&&MOI.length&&!ownData())go('moi');
+  else if(!ownData()&&!(()=>{try{return localStorage.getItem(roleKey())}catch(e){return null}})())go('bienvenue');
+  else go('home')}
+async function logout(){if(!SB)return;await SB.auth.signOut();USER=null;MOI=null;MOI_LOADED=false;useStore(null);setSync('login');go('login')}
 (async()=>{try{if(!CFG.supabaseUrl||!CFG.supabaseAnonKey||!window.supabase){setSync('local');return}
   SB=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true}});
-  const{data}=await SB.auth.getSession();USER=data&&data.session?data.session.user:null;
-  SB.auth.onAuthStateChange((_e,sess)=>{const was=USER&&USER.id;USER=sess?sess.user:null;if(USER&&USER.id!==was){sync(true);MOI_LOADED=false;if(['reglages','moi','archers'].includes(V.view))render()}else if(!USER)setSync('login')});
-  if(USER)await sync(true);else{setSync('login');go('login')}}catch(e){setSync('local')}})();
+  const{data}=await SB.auth.getSession();USER=data&&data.session?data.session.user:null;if(USER)useStore(USER.id);
+  SB.auth.onAuthStateChange((_e,sess)=>{const was=USER&&USER.id;USER=sess?sess.user:null;if(USER&&USER.id!==was){useStore(USER.id);if(['reglages','moi','archers'].includes(V.view))render()}else if(!USER)setSync('login')});
+  if(USER)await aiguiller(false);else{setSync('login');go('login')}}catch(e){setSync('local')}})();
 if('serviceWorker' in navigator&&location.protocol==='https:'){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 // ---------- Calcul des points ----------
@@ -272,7 +286,7 @@ function go(view,extra){if(view!=='tir')chStop();V=Object.assign({view},extra||{
 function render(){
   const tabOf={tir:'new',detail:'home',pedit:'parcours'}[V.view]||V.view;
   $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tabOf?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
-  if(V.view==='login'){$('#nav').style.display='none';$('#app').innerHTML=vLogin();return}
+  if(V.view==='login'||V.view==='bienvenue'){$('#nav').style.display='none';$('#app').innerHTML=V.view==='login'?vLogin():vBienvenue();return}
   $('#nav').style.display='';
   const f={home:vHome,new:vNew,tir:vTir,detail:vDetail,parcours:vParcours,pedit:vPEdit,archers:vArchers,suivi:vSuivi,moi:vMoi,reglages:vReglages}[V.view]||vHome;
   $('#app').innerHTML=f();
@@ -288,9 +302,17 @@ function vLogin(){return `<div class="login"><div class="card" style="max-width:
   <p class="muted" style="text-align:center;margin-top:0">Connectez-vous avec votre compte habituel (le même que pour le Carnet de l'entraîneur).</p>
   <form onsubmit="event.preventDefault();login()"><div class="f"><label>E-mail</label><input id="lem" type="email" autocomplete="username" required></div>
   <div class="f"><label>Mot de passe</label><input id="lpw" type="password" autocomplete="current-password" required></div>
+  <div class="f"><label>Code d'invitation <span class="muted">(archer, seulement la première fois)</span></label><input id="lcode" placeholder="ex. K7M2QX" style="text-transform:uppercase" autocomplete="off"></div>
   <button class="btn p big" style="width:100%" type="submit">Se connecter</button></form>
   <p class="muted" style="font-size:13px;margin-top:12px">Mot de passe oublié : utilisez « mot de passe oublié » dans le Carnet, c'est le même compte.</p>
   <div style="text-align:center;margin-top:14px"><button class="btn" onclick="go('home')">Continuer sans me connecter</button><div class="muted" style="font-size:12px;margin-top:4px">Les données restent alors sur cet appareil.</div></div></div></div>`}
+
+// ---------- Première connexion ----------
+function vBienvenue(){return `<div class="card" style="max-width:520px;margin:20px auto;padding:22px"><h2 style="margin-top:0">Bienvenue 👋</h2>
+  <h3>Vous êtes archer ?</h3><p class="muted">Saisissez le code donné par votre entraîneur pour voir vos tirs et votre suivi.</p>
+  <div class="row"><input id="bcode" placeholder="ex. K7M2QX" style="max-width:200px;text-transform:uppercase" autocomplete="off"><button class="btn p" onclick="utiliserCode('bcode')">Valider le code</button></div>
+  <h3 style="margin-top:22px">Vous êtes entraîneur, ou vous voulez essayer l'appli ?</h3><p class="muted">Vous créez vos propres parcours, archers et tirs. Ils restent dans votre espace.</p>
+  <button class="btn" onclick="try{localStorage.setItem(roleKey(),'coach')}catch(e){};go('home')">Accéder à l'appli</button></div>`}
 
 // ---------- Accueil ----------
 function vHome(){
@@ -552,13 +574,13 @@ function retirerAcces(u){ask('Retirer l\'accès de cet archer à ses résultats 
 
 // ---------- Espace archer : « Mes résultats » (lecture seule) ----------
 let RO=false,MOI_LOADED=false,MOI=null;
-try{MOI=JSON.parse(localStorage.getItem(LS+'-moi'))}catch(e){}
-async function loadMoi(){MOI_LOADED=true;if(!SB||!USER)return;
-  try{const{data,error}=await withTimeout(SB.rpc('parcours_mes_resultats'),15000);if(error)throw error;MOI=Array.isArray(data)?data:[];try{localStorage.setItem(LS+'-moi',JSON.stringify(MOI))}catch(e){}}
-  catch(e){toast('Résultats non mis à jour (réseau ?)')}
+try{MOI=JSON.parse(localStorage.getItem(LSU+'-moi'))}catch(e){}
+async function loadMoi(silent){MOI_LOADED=true;if(!SB||!USER)return;
+  try{const{data,error}=await withTimeout(SB.rpc('parcours_mes_resultats'),15000);if(error)throw error;MOI=Array.isArray(data)?data:[];try{localStorage.setItem(LSU+'-moi',JSON.stringify(MOI))}catch(e){}}
+  catch(e){if(!silent)toast('Résultats non mis à jour (réseau ?)')}
   if(V.view==='moi')render()}
-async function utiliserCode(){const c=$('#mcode').value.trim().toUpperCase();if(!c){toast('Saisissez le code');return}
-  const{error}=await SB.rpc('parcours_utiliser_code',{p_code:c});if(error){toast(error.message);return}toast('Compte relié à votre fiche');loadMoi()}
+async function utiliserCode(id){const el=$('#'+(id||'mcode'));const c=(el?el.value:'').trim().toUpperCase();if(!c){toast('Saisissez le code');return}
+  const{error}=await SB.rpc('parcours_utiliser_code',{p_code:c});if(error){toast(error.message);return}toast('Compte relié à votre fiche');try{localStorage.setItem(roleKey(),'archer')}catch(e){}await loadMoi();go('moi')}
 function asData(L){const D=blank();D.settings=Object.assign(blankSettings(),L.settings||{});const aid=L.archer_key.slice(2);
   D.a[aid]=Object.assign({},L.archer||{},{id:aid,nom:(L.archer&&L.archer.nom)||L.archer_nom});
   (L.parcours||[]).forEach(p=>{if(p&&p.id)D.p[p.id]=p});(L.sessions||[]).forEach(s=>{if(s&&s.id)D.s[s.id]=s});return D}
