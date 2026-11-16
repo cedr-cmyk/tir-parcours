@@ -1,6 +1,6 @@
 // Tir Parcours – fonctionnement hors ligne.
 // À chaque mise à jour de l'appli, changez le numéro ci-dessous pour que les tablettes prennent la nouvelle version.
-const CACHE = 'tir-parcours-v0.4';
+const CACHE = 'tir-parcours-v0.4.1';
 const CORE = ['./', './index.html', './config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -16,7 +16,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.hostname.endsWith('supabase.co')) return;            // données : toujours en direct
   if (url.origin === location.origin) {                          // l'appli : réseau d'abord (3 s), sinon copie locale
-    e.respondWith(timeout(fetch(req), 3000).then(r => {
+    e.respondWith(timeout(fetch(req, {cache: 'no-cache'}), 3000).then(r => {
       if (r && r.ok) { const cp = r.clone(); caches.open(CACHE).then(c => c.put(req, cp)); }
       return r;
     }).catch(() => caches.match(req, {ignoreSearch: true}).then(r => r || caches.match('./index.html'))));
