@@ -109,11 +109,12 @@ input.bad{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 
 .ck{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13px;background:var(--surface)}
 .ck.ok{border-color:var(--ok);color:var(--ok);background:var(--ok-soft)}.ck.ko{border-color:var(--danger);color:var(--danger)}
 .warnlist{margin:10px 0 0;padding-left:20px;font-size:14px;color:var(--danger)}
+.code{font-family:var(--font-display);font-size:1.6rem;font-weight:700;letter-spacing:.12em;background:var(--sunk);border:1px dashed var(--line);border-radius:8px;padding:2px 12px}
 </style>
 </head>
 <body>
 <div class="top"><header>
-  <div class="brand"><span class="logo">🏹</span><div><h1>Tir Parcours</h1><small>v0.3</small></div></div>
+  <div class="brand"><span class="logo">🏹</span><div><h1>Tir Parcours</h1><small>v0.4</small></div></div>
   <div id="sync" class="sync" onclick="USER?sync(true):go('reglages')">Sur cet appareil</div>
 </header>
 <nav id="nav"></nav></div>
@@ -240,11 +241,11 @@ setInterval(()=>{if(Object.keys(S.dirty).length)sync(false)},60000);
 async function login(){const em=$('#lem').value.trim(),pw=$('#lpw').value;if(!em||!pw){toast('E-mail et mot de passe');return}
   if(!SB){toast('Supabase non configuré (config.js)');return}
   const{error}=await SB.auth.signInWithPassword({email:em,password:pw});if(error){toast('Connexion refusée : '+error.message);return}toast('Connecté');}
-async function logout(){if(!SB)return;await SB.auth.signOut();USER=null;setSync('login');render()}
+async function logout(){if(!SB)return;await SB.auth.signOut();USER=null;MOI=null;MOI_LOADED=false;try{localStorage.removeItem(LS+'-moi')}catch(e){}setSync('login');render()}
 (async()=>{try{if(!CFG.supabaseUrl||!CFG.supabaseAnonKey||!window.supabase){setSync('local');return}
   SB=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true}});
   const{data}=await SB.auth.getSession();USER=data&&data.session?data.session.user:null;
-  SB.auth.onAuthStateChange((_e,sess)=>{const was=USER&&USER.id;USER=sess?sess.user:null;if(USER&&USER.id!==was){sync(true);if(V.view==='reglages')render()}else if(!USER)setSync('login')});
+  SB.auth.onAuthStateChange((_e,sess)=>{const was=USER&&USER.id;USER=sess?sess.user:null;if(USER&&USER.id!==was){sync(true);MOI_LOADED=false;if(['reglages','moi','archers'].includes(V.view))render()}else if(!USER)setSync('login')});
   if(USER)await sync(true);else setSync('login')}catch(e){setSync('local')}})();
 if('serviceWorker' in navigator&&location.protocol==='https:'){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
@@ -266,15 +267,17 @@ function nbDep(s,aid){return Object.values(s.scores[aid]||{}).filter(e=>e.dep).l
 
 // ---------- Navigation ----------
 let V={view:'home'};
-const TABS=[['home','Accueil'],['new','Tirer'],['parcours','Parcours'],['archers','Archers'],['suivi','Suivi'],['reglages','Réglages']];
+const TABS=[['home','Accueil'],['new','Tirer'],['parcours','Parcours'],['archers','Archers'],['suivi','Suivi'],['moi','Mes résultats'],['reglages','Réglages']];
 function go(view,extra){if(view!=='tir')chStop();V=Object.assign({view},extra||{});render();window.scrollTo(0,0)}
 function render(){
   const tabOf={tir:'new',detail:'home',pedit:'parcours'}[V.view]||V.view;
   $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tabOf?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
-  const f={home:vHome,new:vNew,tir:vTir,detail:vDetail,parcours:vParcours,pedit:vPEdit,archers:vArchers,suivi:vSuivi,reglages:vReglages}[V.view]||vHome;
+  const f={home:vHome,new:vNew,tir:vTir,detail:vDetail,parcours:vParcours,pedit:vPEdit,archers:vArchers,suivi:vSuivi,moi:vMoi,reglages:vReglages}[V.view]||vHome;
   $('#app').innerHTML=f();
   if(V.view==='pedit')refreshChecks();
   if(V.view==='tir')updCh();
+  if(V.view==='archers'&&V.aid)loadAcces();
+  if(V.view==='moi'&&!MOI_LOADED)loadMoi();
 }
 
 // ---------- Accueil ----------
@@ -381,7 +384,7 @@ function vDetail(){const s=S.s[V.sid];if(!s)return vHome();const p=S.p[s.parcour
   if(!p.cibles)p.cibles=[];vols(p).forEach((c,i)=>{h+=`<tr><td>${s.type==='Safari'?volLab(p,i):i+1}</td><td>${esc(c.animal||'')}</td>`+ar.map(a=>{const e=(s.scores[a.id]||{})[i]||{};const pt=scoreCible(s.type,e);
     const er=k=>{const est=k?e.est2:e.est;const r=distReelle(s,a.id,i,k);return `${est!=null?est:'–'}/${r!=null?r:'–'}`};
     return `<td><b style="color:${pt===0?'var(--danger)':'inherit'}">${pt==null?'–':pt}</b>${e.dep?' ⏱':''} <span class="muted">${s.type==='Nature'?er(0)+' · '+er(1):s.type==='Safari'?(distReelle(s,a.id,i,0)??'–'):er(0)} m</span></td>`}).join('')+'</tr>'});
-  h+=`</table></div><div class="row"><button class="btn p" onclick="reopen()">✏️ Reprendre / corriger la saisie</button><button class="btn d" onclick="ask('Supprimer ce tir ?','Supprimer',()=>{del('s','${s.id}');go('home')},true)">Supprimer</button></div>`;
+  h+=RO?'</table></div>':`</table></div><div class="row"><button class="btn p" onclick="reopen()">✏️ Reprendre / corriger la saisie</button><button class="btn d" onclick="ask('Supprimer ce tir ?','Supprimer',()=>{del('s','${s.id}');go('home')},true)">Supprimer</button></div>`;
   return h}
 function reopen(){const s=curS();s.done=false;put('s',s);go('tir',{sid:s.id})}
 
@@ -460,6 +463,7 @@ function vArchers(){const as=list('a').sort((a,b)=>a.nom.localeCompare(b.nom));c
   <div class="f"><label>Piquets en Nature (1re / 2e flèche)</label><select id="apn"><option value="" id="autoN">Auto (règlement)${rN?' : '+rN.join(' / '):''}</option>${['Rouge/Bleu','Blanc/Blanc','Rose/Rose'].map(x=>`<option ${o.pN===x?'selected':''}>${x.replace('/',' / ')}</option>`).join('')}</select></div></div>
   <div class="muted" id="autoInfo" style="margin-bottom:10px">${autoInfo(o.cat,o.arme)}</div>
   <div class="row"><button class="btn p" onclick="saveArcher()">${ed?'Enregistrer':'Ajouter'}</button>${ed?`<button class="btn" onclick="go('archers')">Annuler</button><button class="btn d" onclick="ask('Supprimer ${esc(ed.nom)} ?','Supprimer',()=>{del('a','${ed.id}');go('archers')},true)">Supprimer</button>`:''}</div></div>
+  ${ed?`<div class="card"><h3 style="margin-top:0">Espace archer</h3><p class="muted">Donnez un code à ${esc(ed.nom)} : il se connecte avec son compte (le même que pour le Carnet), saisit le code dans « Mes résultats » et voit ses tirs et son suivi, en lecture seule. Il ne voit ni les autres archers, ni vos notes. Les données restent séparées du Carnet.</p><div id="acces" class="muted">Chargement…</div></div>`:''}
   ${as.length?as.map(a=>{const p3=piqArcher(a,'3D'),pn=piqArcher(a,'Nature'),ps=piqArcher(a,'Safari');return `<div class="item" onclick="go('archers',{aid:'${a.id}'})"><div class="grow"><b>${esc(a.nom)}</b><div class="muted">${esc([ARMES[a.arme],a.cat,a.club].filter(Boolean).join(' · '))}</div></div><div class="muted" style="text-align:right">3D ${chip(p3[0])}${esc(p3[0]||'?')}${a.p3D?' (forcé)':''}<br>Nature ${chip(pn[0])}${chip(pn[1])}${esc(pn[0]?pn.join('/'):'?')}${a.pN?' (forcé)':''}${ps[0]?`<br>Safari ${chip(ps[0])}${esc(ps[0])}${a.pS?' (forcé)':''}`:''}</div></div>`}).join(''):'<div class="empty">Aucun archer.</div>'}`}
 function autoInfo(cat,arme){if(!cat||!arme)return 'Choisissez la catégorie et l\'arme : le piquet est déduit du règlement. Forcez-le seulement en cas de surclassement.';
   const r3=regPiquets('3D',cat,arme),rN=regPiquets('Nature',cat,arme);
@@ -478,8 +482,8 @@ function bar(lab,val,max,txt,cls){const w=max?Math.round(100*val/max):0;return `
 const pc=(a,b)=>b?Math.round(100*a/b)+' %':'–';
 function vSuivi(){const as=list('a').sort((a,b)=>a.nom.localeCompare(b.nom));if(!as.length)return '<h2>Suivi</h2><div class="empty">Ajoutez des archers d\'abord.</div>';
   const aid=V.aid&&S.a[V.aid]?V.aid:as[0].id;const type=V.type||'3D';
-  let h=`<h2>Suivi entraîneur</h2><div class="card row"><div class="grow"><label>Archer</label><select onchange="go('suivi',{aid:this.value,type:'${type}'})">${as.map(a=>`<option value="${a.id}" ${a.id===aid?'selected':''}>${esc(a.nom)}</option>`).join('')}</select></div>
-  <div><label>Discipline</label><select onchange="go('suivi',{aid:'${aid}',type:this.value})">${TYPES.map(t=>`<option value="${t}" ${type===t?'selected':''}>${typeLab(t)}</option>`).join('')}</select></div></div>`;
+  let h=`<h2>${RO?'Mon suivi':'Suivi entraîneur'}</h2><div class="card row"><div class="grow"><label>Archer</label><select onchange="go(V.view,Object.assign({},V,{aid:this.value}))">${as.map(a=>`<option value="${a.id}" ${a.id===aid?'selected':''}>${esc(a.nom)}</option>`).join('')}</select></div>
+  <div><label>Discipline</label><select onchange="go(V.view,Object.assign({},V,{type:this.value}))">${TYPES.map(t=>`<option value="${t}" ${type===t?'selected':''}>${typeLab(t)}</option>`).join('')}</select></div></div>`;
   const saf=type==='Safari';const ss=list('s').filter(s=>s.archerIds.includes(aid)&&s.type===type&&S.p[s.parcoursId]).sort((a,b)=>a.date<b.date?1:-1);
   if(!ss.length)return h+'<div class="empty">Aucun tir '+type+' pour cet archer.</div>';
   const cib=[],arr=[],est=[];let dep=0;
@@ -512,6 +516,56 @@ function vSuivi(){const as=list('a').sort((a,b)=>a.nom.localeCompare(b.nom));if(
   ss.slice(0,15).forEach(s=>{const t=totalArcher(s,aid);const d=departage(s,aid);const nb=(S.p[s.parcoursId].cibles||[]).length;h+=bar(fdate(s.date),t,mx,`${t} pts · ${d.v[0]}:${d.n[0]} ${d.v[1]}:${d.n[1]}`)});
   return h+'</div>'}
 
+// ---------- Espace archer : côté entraîneur ----------
+let ACC={ok:false,liens:[],invs:[]};
+async function loadAcces(){const el0=$('#acces');if(!el0)return;if(!SB||!USER){el0.innerHTML=accesHTML(V.aid);return}
+  try{const[l,i]=await Promise.all([SB.from('parcours_liens').select('archer_user,archer_key,archer_nom,created_at').eq('coach',USER.id),SB.from('parcours_invitations').select('code,archer_key,archer_nom,used_by,created_at').eq('coach',USER.id)]);
+    if(l.error||i.error)throw(l.error||i.error);ACC={ok:true,liens:l.data||[],invs:i.data||[]}}catch(e){ACC={ok:false,err:true,liens:[],invs:[]}}
+  const el=$('#acces');if(el&&V.aid)el.innerHTML=accesHTML(V.aid)}
+function accesHTML(id){const key='a-'+id;
+  if(!SB)return 'Supabase non configuré (config.js).';if(!USER)return 'Connectez-vous dans Réglages pour donner un accès.';
+  if(!ACC.ok)return ACC.err?'Accès non chargés : il faut du réseau.':'Chargement…';
+  const liens=ACC.liens.filter(l=>l.archer_key===key),invs=ACC.invs.filter(i=>i.archer_key===key&&!i.used_by);let h='';
+  h+=liens.map(l=>`<div class="row" style="margin-bottom:8px;color:var(--ink)">✓ Relié à un compte depuis le ${new Date(l.created_at).toLocaleDateString('fr-FR')}<button class="btn d" onclick="retirerAcces('${l.archer_user}')">Retirer l'accès</button></div>`).join('');
+  h+=invs.map(i=>`<div class="row" style="margin-bottom:8px;color:var(--ink)">Code à donner : <span class="code">${esc(i.code)}</span><button class="btn" onclick="copierCode('${esc(i.code)}')">Copier</button><button class="btn d" onclick="annulerCode('${esc(i.code)}')">Annuler ce code</button></div>`).join('');
+  if(!liens.length&&!invs.length)h+=`<button class="btn p" onclick="creerCode('${id}')">Créer un code d'invitation</button>`;
+  return h}
+async function creerCode(id){const a=S.a[id];if(!a)return;if(S.dirty['a-'+id])await sync(false);
+  const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const rnd=new Uint32Array(6);crypto.getRandomValues(rnd);const c=[...rnd].map(x=>A[x%A.length]).join('');
+  const{error}=await SB.from('parcours_invitations').insert({code:c,archer_key:'a-'+id,archer_nom:a.nom});
+  if(error){toast('Impossible : '+error.message);return}toast('Code créé');loadAcces()}
+function copierCode(c){try{navigator.clipboard.writeText(c).then(()=>toast('Code copié'),()=>toast(c))}catch(e){toast(c)}}
+async function annulerCode(c){const{error}=await SB.from('parcours_invitations').delete().eq('code',c);if(error)toast(error.message);loadAcces()}
+function retirerAcces(u){ask('Retirer l\'accès de cet archer à ses résultats ?','Retirer',async()=>{await SB.from('parcours_liens').delete().eq('coach',USER.id).eq('archer_user',u);await SB.from('parcours_invitations').delete().eq('used_by',u);toast('Accès retiré');loadAcces()},true)}
+
+// ---------- Espace archer : « Mes résultats » (lecture seule) ----------
+let RO=false,MOI_LOADED=false,MOI=null;
+try{MOI=JSON.parse(localStorage.getItem(LS+'-moi'))}catch(e){}
+async function loadMoi(){MOI_LOADED=true;if(!SB||!USER)return;
+  try{const{data,error}=await withTimeout(SB.rpc('parcours_mes_resultats'),15000);if(error)throw error;MOI=Array.isArray(data)?data:[];try{localStorage.setItem(LS+'-moi',JSON.stringify(MOI))}catch(e){}}
+  catch(e){toast('Résultats non mis à jour (réseau ?)')}
+  if(V.view==='moi')render()}
+async function utiliserCode(){const c=$('#mcode').value.trim().toUpperCase();if(!c){toast('Saisissez le code');return}
+  const{error}=await SB.rpc('parcours_utiliser_code',{p_code:c});if(error){toast(error.message);return}toast('Compte relié à votre fiche');loadMoi()}
+function asData(L){const D=blank();D.settings=Object.assign(blankSettings(),L.settings||{});const aid=L.archer_key.slice(2);
+  D.a[aid]=Object.assign({},L.archer||{},{id:aid,nom:(L.archer&&L.archer.nom)||L.archer_nom});
+  (L.parcours||[]).forEach(p=>{if(p&&p.id)D.p[p.id]=p});(L.sessions||[]).forEach(s=>{if(s&&s.id)D.s[s.id]=s});return D}
+function vMoi(){let h=`<h2>Mes résultats</h2>`;
+  if(!SB)return h+'<div class="empty">Supabase non configuré.</div>';
+  if(!USER)return h+`<div class="empty">Connectez-vous dans <a href="#" onclick="go('reglages');return false">Réglages</a> avec votre compte.</div>`;
+  const links=MOI||[];
+  h+=`<p class="muted">Les tirs que votre entraîneur a saisis pour vous, en lecture seule. Vos propres essais dans l'appli restent dans les autres onglets.</p>`;
+  if(links.length){const li=Math.min(V.li||0,links.length-1);const L=links[li];const save=S,saveV=Object.assign({},V);S=asData(L);RO=true;
+    try{const aid=L.archer_key.slice(2);
+      if(links.length>1)h+=`<div class="card"><label>Entraîneur / fiche</label><select onchange="go('moi',{li:+this.value})">${links.map((x,i)=>`<option value="${i}" ${i===li?'selected':''}>${esc(x.archer_nom||'Fiche '+(i+1))}</option>`).join('')}</select></div>`;
+      if(V.sid&&S.s[V.sid]){h+=`<button class="btn" onclick="go('moi',{li:${li}})">‹ Retour</button>`+vDetail()}
+      else{const ss=list('s').filter(s=>S.p[s.parcoursId]).sort((a,b)=>a.date<b.date?1:-1);
+        h+='<h3>Mes parcours</h3>'+(ss.length?ss.map(s=>{const p=S.p[s.parcoursId];return `<div class="item" onclick="go('moi',{li:${li},sid:'${s.id}'})"><div class="grow"><b>${esc(p.nom)}</b> ${badge(s.type)}<div class="muted">${fdate(s.date)}${s.done?'':' · en cours'}</div></div><b style="font-size:20px">${totalArcher(s,aid)}</b></div>`}).join(''):'<div class="empty">Aucun tir pour l\'instant.</div>');
+        V.aid=aid;h+=vSuivi().replace(/^<h2>.*?<\/h2>/,'<h3>Mon suivi</h3>')}}
+    finally{S=save;RO=false;V=saveV}}
+  h+=`<div class="card"><h3 style="margin-top:0">${links.length?'Relier une autre fiche':'Relier mon compte'}</h3><p class="muted">Saisissez le code donné par votre entraîneur (une seule fois).</p><div class="row"><input id="mcode" placeholder="ex. K7M2QX" style="max-width:200px;text-transform:uppercase"><button class="btn p" onclick="utiliserCode()">Valider</button><button class="btn" onclick="loadMoi()">Actualiser</button></div></div>`;
+  return h}
+
 // ---------- Réglages ----------
 function vReglages(){const st=S.settings;
   return `<h2>Réglages</h2><div class="card"><h3 style="margin-top:0">Barèmes (règlements FFTA août 2026)</h3>
@@ -534,7 +588,7 @@ function vReglages(){const st=S.settings;
 function setB(k,i,v){const n=num(v);if(n==null)return;S.settings[k][i]=n;putSettings();toast('Barème mis à jour')}
 function resetB(){const d=blankSettings();Object.assign(S.settings,{bareme3D:d.bareme3D,natureF1:d.natureF1,natureF2:d.natureF2,safari:d.safari});putSettings();render();toast('Barèmes du règlement rétablis')}
 function setC(k,v){const n=parseInt(v);if(!n||n<5)return;S.settings[k]=n;putSettings()}
-function exportJ(){const d=JSON.stringify({app:'parcours-3d-nature',version:'0.3',export:new Date().toISOString(),parcours:S.p,archers:S.a,sessions:S.s,settings:S.settings});
+function exportJ(){const d=JSON.stringify({app:'parcours-3d-nature',version:'0.4',export:new Date().toISOString(),parcours:S.p,archers:S.a,sessions:S.s,settings:S.settings});
   try{navigator.clipboard.writeText(d).then(()=>toast('Données copiées'),()=>{$('#imp').value=d;toast('Copiez le texte affiché')})}catch(e){$('#imp').value=d;toast('Copiez le texte affiché')}}
 function importJ(){let d;try{d=JSON.parse($('#imp').value)}catch(e){toast('Texte illisible');return}let n=0;
   for(const[k,src]of[['p',d.parcours],['a',d.archers],['s',d.sessions]]){for(const o of Object.values(src||{})){const l=S[k][o.id];if(!l||(o.updatedAt||0)>(l.updatedAt||0)){S[k][o.id]=o;S.dirty[k+'-'+o.id]=1;n++}}}

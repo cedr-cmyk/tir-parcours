@@ -19,7 +19,8 @@ Elle fonctionne sans réseau sur le parcours, puis envoie les données dans Supa
 1. Ouvrir le projet Supabase du Carnet de l'entraîneur.
 2. Menu **SQL Editor** → **New query**.
 3. Coller tout le contenu de `supabase.sql` → **Run**.
-4. Vérifier dans **Table Editor** qu'une table `parcours_items` est apparue.
+   (Le fichier peut être relancé sans risque, par exemple après une mise à jour.)
+4. Vérifier dans **Table Editor** que les tables `parcours_items`, `parcours_invitations` et `parcours_liens` sont apparues.
    Les tables du Carnet ne sont pas modifiées.
 
 ### 2. Remplir `config.js`
@@ -48,6 +49,22 @@ Elle fonctionne sans réseau sur le parcours, puis envoie les données dans Supa
 1. Remplacer `index.html` (et les autres fichiers modifiés) dans le dépôt GitHub.
 2. Dans `sw.js`, changer le numéro de `CACHE` (ex. `tir-parcours-v0.3` → `tir-parcours-v0.4`).
 3. Sur la tablette, ouvrir l'appli avec du réseau : la nouvelle version est prise au 2e lancement.
+
+## Espace archer (v0.4)
+Seule la **connexion** est commune avec le Carnet : les archers utilisent leur compte habituel.
+Toutes les données de Tir Parcours restent dans ses propres tables (`parcours_items`, `parcours_invitations`, `parcours_liens`).
+
+**Côté entraîneur**
+1. Onglet **Archers** → ouvrir la fiche de l'archer → bloc **Espace archer** → **Créer un code d'invitation**.
+2. Donner le code (6 caractères) à l'archer.
+3. Pour couper l'accès : même endroit → **Retirer l'accès**.
+
+**Côté archer**
+1. Ouvrir l'appli → **Réglages** → **Se connecter** avec son compte.
+2. Onglet **Mes résultats** → saisir le code → **Valider** (une seule fois).
+3. Il voit ses tirs cible par cible et son suivi, en lecture seule.
+   Il ne voit ni les autres archers ni les notes de l'entraîneur.
+4. Les autres onglets restent à sa disposition pour **tester les fonctions** : ce qu'il y crée reste dans son propre espace, sans toucher à vos données.
 
 ## Bon à savoir
 - Ouvrir l'appli une première fois **avec du réseau** sur chaque tablette, pour qu'elle se mette en mémoire.
