@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1f6b43">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Tir Parcours</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Mêmes couleurs que le Carnet de l'entraîneur */
+:root{color-scheme:light;
+--bg:#edf0e8;--surface:#fbfcf7;--sunk:#e3e8dc;--ink:#18261d;--muted:#56655a;--line:#c9d3c3;
+--accent:#1f6b43;--accent-ink:#fff;--gold:#e0ac12;--danger:#c0352a;--danger-ink:#fff;--ok:#24804c;--ok-soft:#dcefe2;
+--est-plus:#f7ecd0;--est-plus-ink:#7a5a00;--est-moins:#dde7f4;--est-moins-ink:#2a5fae;
+--font-display:"Big Shoulders Display","Arial Narrow",system-ui,sans-serif;--font-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+--vert:var(--accent);--vert2:var(--ok);--clair:var(--ok-soft);--txt:var(--ink);--gris:var(--muted);--bord:var(--line);--rouge:var(--danger);--or:var(--gold);--bleu:#2a5fae}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;
+--bg:#0e1712;--surface:#15221a;--sunk:#1c2c22;--ink:#e6eee5;--muted:#98aa9c;--line:#2a3d31;
+--accent:#4fbf7e;--accent-ink:#08170e;--gold:#f2c443;--danger:#ef6a5c;--danger-ink:#1b0907;--ok:#55b97f;--ok-soft:#173525;
+--est-plus:#3a2f10;--est-plus-ink:#f2c443;--est-moins:#15263d;--est-moins-ink:#7aaaf0;--bleu:#7aaaf0}}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font-body);background:var(--bg);color:var(--ink);font-size:16px;line-height:1.45}
+.top{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+header{max-width:980px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:10px 16px 0;gap:10px}
+.brand{display:flex;align-items:center;gap:10px}.brand h1{font-family:var(--font-display);font-weight:700;font-size:1.45rem;letter-spacing:.01em;margin:0;text-transform:uppercase}
+.brand small{color:var(--muted);font-size:.8rem}
+.logo{font-size:24px}
+.sync{font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--sunk);color:var(--muted);white-space:nowrap;cursor:pointer}
+.sync.ok{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}.sync.wait{background:var(--est-plus);color:var(--est-plus-ink);border-color:var(--gold)}.sync.err{background:var(--danger);color:var(--danger-ink);border-color:var(--danger)}.sync.busy{background:var(--est-moins);color:var(--est-moins-ink)}
+nav{max-width:980px;margin:0 auto;display:flex;gap:4px;padding:0 16px;overflow-x:auto}
+nav button{border:0;background:none;padding:10px 14px;font-family:var(--font-display);font-weight:600;font-size:1.1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+nav button.on{color:var(--ink);border-bottom-color:var(--accent)}
+main{max-width:980px;margin:0 auto;padding:16px 16px 96px}
+h2{font-family:var(--font-display);font-size:1.5rem;text-transform:uppercase;letter-spacing:.03em;margin:6px 0 12px;color:var(--ink)}
+h3{font-family:var(--font-display);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:1rem;color:var(--muted);margin:16px 0 8px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grow{flex:1}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer;min-height:44px}
+.btn.p{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.d{color:var(--danger);border-color:var(--line)}
+.btn.big{font-size:18px;padding:14px 20px;min-height:56px}
+.btn:disabled{opacity:.4}
+label{font-size:13px;color:var(--muted);display:block;margin-bottom:3px}
+input,select,textarea{font:inherit;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);-webkit-text-fill-color:var(--ink);caret-color:var(--accent);width:100%;min-height:42px}
+input::placeholder,textarea::placeholder{color:var(--muted);-webkit-text-fill-color:var(--muted);opacity:.7}
+select option{background:var(--surface);color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+textarea{min-height:90px}
+.f{margin-bottom:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+.badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--ok-soft);color:var(--ok);font-weight:700}
+.badge.s{background:var(--est-moins);color:var(--est-moins-ink)}
+.badge.n{background:var(--est-plus);color:var(--est-plus-ink)}
+.muted{color:var(--muted);font-size:14px}
+.item{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:6px;background:var(--surface);margin-bottom:8px;cursor:pointer}
+.item:hover{border-color:var(--muted)}
+.chip{display:inline-block;width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);vertical-align:middle;margin-right:4px}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:700;font-size:.8rem}
+td input{min-height:36px;padding:6px}
+.tbl{overflow-x:auto}
+.cible-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cnum{font-family:var(--font-display);font-size:2.4rem;font-weight:700;line-height:1;color:var(--ink)}
+.jump{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
+.jump button{width:38px;height:38px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;font-size:13px}
+.jump button.done{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.jump button.cur{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.arch{border-left:4px solid var(--accent)}
+.zones{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+.z{flex:1;min-width:60px;min-height:54px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-family:var(--font-display);font-size:1.5rem;font-weight:700;cursor:pointer}
+.z small{display:block;font-family:var(--font-body);font-size:11px;font-weight:400;color:var(--muted)}
+.z.sel{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}.z.sel small{color:var(--accent-ink);opacity:.8}
+.z.m.sel{background:var(--danger);border-color:var(--danger);color:var(--danger-ink)}.z.m.sel small{color:var(--danger-ink)}
+.pts{font-family:var(--font-display);font-size:2rem;font-weight:700;line-height:1;color:var(--ink);text-align:right}
+.est{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
+.ecart{font-weight:700;padding:8px 10px;border-radius:8px;background:var(--sunk);min-height:42px;display:flex;align-items:center;white-space:nowrap}
+.ecart.plus{background:var(--est-plus);color:var(--est-plus-ink)}.ecart.moins{background:var(--est-moins);color:var(--est-moins-ink)}
+.navbar{display:flex;gap:10px;position:sticky;bottom:0;background:var(--bg);padding:10px 0}
+.navbar .btn{flex:1}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px}
+.kpi b{display:block;font-family:var(--font-display);font-size:2rem;line-height:1.1;color:var(--ink)}.kpi span{font-size:13px;color:var(--muted)}
+.bar{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:14px}
+.bar .lab{width:110px;flex:none}.bar .tr{flex:1;background:var(--sunk);border-radius:6px;height:18px;overflow:hidden}
+.bar .fi{height:100%;background:var(--ok)}.bar .fi.r{background:var(--danger)}.bar .fi.o{background:var(--gold)}
+.bar .v{width:90px;text-align:right;flex:none;color:var(--muted)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
+.modal.hidden{display:none}
+.box{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:18px;max-width:420px;width:100%}
+.mact{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.3s;pointer-events:none;z-index:30}
+#toast.on{opacity:.95}
+.empty{text-align:center;padding:30px 10px;color:var(--muted)}
+.warn{background:var(--est-plus);color:var(--est-plus-ink);border:1px solid var(--gold);border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+.warn a{color:inherit;font-weight:700}
+.chrono{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.cht{font-family:var(--font-display);font-size:2rem;font-weight:700;min-width:120px}
+.cht.warn{color:var(--est-plus-ink)}.cht.over{color:var(--danger)}
+.fl{font-weight:700;margin:4px 0 2px}
+.dep{font-size:14px;min-height:38px;padding:6px 12px}.dep.on{background:var(--danger);color:var(--danger-ink);border-color:var(--danger)}
+input.bad{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,var(--surface));box-shadow:0 0 0 1px var(--danger)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.ck{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13px;background:var(--surface)}
+.ck.ok{border-color:var(--ok);color:var(--ok);background:var(--ok-soft)}.ck.ko{border-color:var(--danger);color:var(--danger)}
+.warnlist{margin:10px 0 0;padding-left:20px;font-size:14px;color:var(--danger)}
+</style>
+</head>
+<body>
+<div class="top"><header>
+  <div class="brand"><span class="logo">🏹</span><div><h1>Tir Parcours</h1><small>v0.3</small></div></div>
+  <div id="sync" class="sync" onclick="USER?sync(true):go('reglages')">Sur cet appareil</div>
+</header>
+<nav id="nav"></nav></div>
+<main id="app"></main>
+<div id="modal" class="modal hidden"><div class="box"><div id="mbody"></div><div class="mact" id="mact"></div></div></div>
+<div id="toast"></div>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ---------- Outils ----------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const today=()=>new Date().toISOString().slice(0,10);
+const fdate=d=>{try{return new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}catch(e){return d}};
+const num=v=>{if(v===''||v==null)return null;const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?null:n};
+const sum=a=>a.reduce((t,x)=>t+x,0);
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),1800)}
+function ask(msg,ok,fn,danger){$('#mbody').innerHTML='<p>'+msg+'</p>';const a=$('#mact');a.innerHTML='';
+  const c=document.createElement('button');c.className='btn';c.textContent='Annuler';c.onclick=closeModal;
+  const o=document.createElement('button');o.className='btn '+(danger?'d':'p');o.textContent=ok;o.onclick=()=>{closeModal();fn()};
+  a.append(c,o);$('#modal').classList.remove('hidden')}
+function closeModal(){$('#modal').classList.add('hidden')}
+
+// ---------- Règlements FFTA (version août 2026) ----------
+const PIQUETS=['Rouge','Bleu','Blanc','Rose'];
+const PIQ_COL={Rouge:'#c0352a',Bleu:'#2a5fae',Blanc:'#ffffff',Rose:'#f08fb5',Jaune:'#f1c40f',Vert:'#1d8a3a'};
+// UFOLEP Tir Safari (règlement d'arbitrage, 18/10/2015)
+const PIQ_SAF=['Jaune','Rouge','Bleu','Vert'];
+const AGES_U={'-12':'12 ans et moins','13-14':'13-14 ans','15-16':'15-16 ans','Adulte':'Adulte'};
+const AGE_PIQ={'-12':'Vert','13-14':'Bleu','15-16':'Rouge','Adulte':'Jaune'};
+const DSAF={A:{Vert:5,Bleu:10,Rouge:10,Jaune:15},P:{Vert:10,Bleu:15,Rouge:20,Jaune:25},M:{Vert:12,Bleu:20,Rouge:25,Jaune:30},G:{Vert:15,Bleu:25,Rouge:30,Jaune:35}};
+const REPSAF={12:{G:4,M:4,P:2,A:2},24:{G:8,M:8,P:4,A:4}};
+const piqList=type=>type==='Safari'?PIQ_SAF:PIQUETS;
+const TYPES=['3D','Nature','Safari'];
+const typeLab=t=>t==='Safari'?'Safari UFOLEP':t;
+const badge=t=>`<span class="badge ${t==='Nature'?'n':t==='Safari'?'s':''}">${typeLab(t)}</span>`;
+const vols=p=>p?(p.double?p.cibles.concat(p.cibles):p.cibles):[];
+const volLab=(p,i)=>{const n=p.cibles.length;return p.double?`${(i%n)+1}${i>=n?' (2e tour)':''}`:String(i+1)};
+const chip=p=>p?`<span class="chip" style="background:${PIQ_COL[p]||'#999'}" title="${esc(p)}"></span>`:'';
+const CATS=['U11','U13','U15','U18','U21','S1','S2','S3','Promotion'];
+const ARMES={BB:'Arc nu',Co:'Arc à poulies nu',AD:'Arc droit',TL:'Arc libre',AC:'Arc chasse'};
+// Tableaux A.2 des règlements 3D et Nature
+function regPiquets(type,cat,arme){
+  if(!cat||!arme)return null;
+  if(cat==='Promotion')return['Blanc','Blanc'];
+  if(type==='3D'){let p;
+    if(cat==='U11')p=arme==='BB'?'Rose':null;
+    else if(cat==='U13'||cat==='U15')p=arme==='TL'?'Bleu':'Blanc';
+    else p=arme==='TL'?'Rouge':'Bleu';
+    return p?[p,p]:null}
+  if(cat==='U11')return arme==='BB'?['Rose','Rose']:null;
+  if(cat==='U13'||cat==='U15')return['Blanc','Blanc'];
+  return['Rouge','Bleu']}
+function piqArcher(a,type){if(!a)return[null,null];
+  if(type==='Safari'){const q=a.pS||AGE_PIQ[a.ageU];return q?[q,q]:[null,null]}
+  const f=type==='3D'?a.p3D:a.pN;
+  if(f)return type==='Nature'?f.split('/'):[f,f];return regPiquets(type,a.cat,a.arme)||[null,null]}
+const piqTxt=(pq,type)=>!pq||!pq[0]?(type==='Safari'?'tranche d\'âge UFOLEP ?':'piquet ?'):type==='Nature'?(pq[0]===pq[1]?pq[0]+' (×2)':pq[0]+' puis '+pq[1]):pq[0];
+// Distances 3D (B.4) et répartition (B.5.1, C.3.5)
+const R3D={Rouge:[10,45],Bleu:[5,30],Blanc:[5,25],Rose:[5,20]};
+const CUM3D={24:{Rouge:[630,670],Bleu:[460,490],Blanc:[350,370]},18:{Rouge:[470,500],Bleu:[345,375],Blanc:[260,280]}};
+const REP3D={24:{1:4,2:6,3:8,4:6},18:{1:3,2:5,3:6,4:4}};
+// Distances Nature (B.5) et répartition (B.6.1)
+const GIB={G:'Grand gibier',M:'Moyen gibier',P:'Petit gibier',A:'Petit animal'};
+const RNAT={Rouge:{G:[30,40],M:[20,35],P:[15,25],A:[5,15]},Bleu:{G:[5,35],M:[5,30],P:[5,20],A:[5,15]},Blanc:{G:[5,30],M:[5,25],P:[5,15],A:[5,15]},Rose:{G:[5,20],M:[5,15],P:[5,10],A:[5,10]}};
+const REPNAT={21:{G:4,M:7,P:6,A:4}};
+const CUMNAT={21:{Rouge:[525,550]}};
+
+// ---------- Données (sauvegarde sur l'appareil = hors ligne) ----------
+const LS='tir-parcours-v1';
+function blankSettings(){return{bareme3D:[11,10,8,5],natureF1:[20,15],natureF2:[15,10],safari:[20,15],chronoOn:true,chrono3D:90,chronoN:45,chronoS:120,updatedAt:0}}
+function blank(){return{p:{},a:{},s:{},settings:blankSettings(),dirty:{},mig:2}}
+let S;
+try{S=JSON.parse(localStorage.getItem(LS))||blank()}catch(e){S=blank()}
+S=Object.assign(blank(),S,{mig:S&&S.mig||1});S.settings=Object.assign(blankSettings(),S.settings);
+function persist(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+function put(kind,o){o.updatedAt=Date.now();S[kind][o.id]=o;S.dirty[kind+'-'+o.id]=1;persist();queueSync()}
+function putSettings(){S.settings.updatedAt=Date.now();S.dirty.settings=1;persist();queueSync()}
+const list=k=>Object.values(S[k]).filter(x=>!x.deleted);
+function del(kind,id){const o=S[kind][id];if(!o)return;o.deleted=true;put(kind,o)}
+// Passage v0.1 -> v0.2 (règlements)
+function migrate(){
+  const old={'Arc nu':'BB','Arc à poulies':'Co','Arc droit / longbow':'AD','Arc libre (classique)':'TL','Arc chasse / instinctif':'AC'};
+  for(const a of Object.values(S.a)){let ch=false;
+    if(a.arme&&!ARMES[a.arme]){a.arme=old[a.arme]||'';ch=true}
+    if(a.cat&&!CATS.includes(a.cat)){a.catNote=a.cat;a.cat=CATS.find(c=>String(a.catNote).toUpperCase().startsWith(c.toUpperCase()))||'';ch=true}
+    if(a.piquet!==undefined){const r=regPiquets('3D',a.cat,a.arme);if(PIQUETS.includes(a.piquet)&&!(r&&r[0]===a.piquet))a.p3D=a.piquet;delete a.piquet;ch=true}
+    if(ch)put('a',a)}
+  for(const s of Object.values(S.s)){if(s.type!=='Nature'||!s.done)continue;let ch=false;
+    for(const sc of Object.values(s.scores||{}))for(const e of Object.values(sc)){if(e.f&&e.f[0]!=null&&e.f[1]==null){e.f[1]='M';ch=true}}
+    if(ch)put('s',s)}
+  delete S.settings.piquets;S.mig=2;persist()}
+
+// ---------- Synchronisation Supabase (quand le réseau revient) ----------
+// Table dédiée « parcours_items » : aucune table du Carnet n'est lue ni modifiée.
+const CFG=window.TP_CONFIG||{};
+let SB=null,USER=null,syncBusy=false,syncTimer=null;
+function setSync(st,msg){const n=Object.keys(S.dirty).length;const el=$('#sync');
+  const m={local:'Sur cet appareil',login:'Se connecter',ok:'✓ Synchronisé',wait:'⏳ '+n+' en attente',busy:'Synchro…',err:msg||'Synchro impossible'};
+  el.className='sync '+(st==='local'||st==='login'?'':st);el.textContent=m[st]||st;el.title=st==='wait'?'Données gardées sur l\'appareil, envoi dès que le réseau revient':''}
+function itemByKey(k){if(k==='settings')return S.settings;return S[k[0]]?S[k[0]][k.slice(2)]:null}
+function setByKey(k,it){if(k==='settings'){S.settings=Object.assign(blankSettings(),it);return}if(S[k[0]])S[k[0]][k.slice(2)]=it}
+const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r({code:'timeout'}),ms))]);
+async function pull(){const{data,error}=await withTimeout(SB.from('parcours_items').select('key,updated_at,item'),15000);if(error)throw error;let ch=false;
+  for(const d of data||[]){if(!d.item)continue;const loc=itemByKey(d.key);
+    if(!loc||(Number(d.updated_at)||0)>(loc.updatedAt||0)){setByKey(d.key,d.item);delete S.dirty[d.key];ch=true}}
+  if(ch){S.mig=1;migrate();persist();render()}}
+async function push(){const keys=Object.keys(S.dirty);if(!keys.length)return;const snap={};
+  const rows=[];for(const k of keys){const it=itemByKey(k);if(!it){delete S.dirty[k];continue}snap[k]=it.updatedAt||0;
+    rows.push({owner:USER.id,key:k,kind:k==='settings'?'settings':k[0],updated_at:snap[k],item:JSON.parse(JSON.stringify(it))})}
+  for(let i=0;i<rows.length;i+=200){const{error}=await withTimeout(SB.from('parcours_items').upsert(rows.slice(i,i+200),{onConflict:'owner,key'}),20000);if(error)throw error}
+  for(const k of Object.keys(snap))if((itemByKey(k)||{}).updatedAt===snap[k])delete S.dirty[k];persist()}
+async function sync(full){if(!SB){setSync('local');return}if(!USER){setSync('login');return}if(syncBusy)return;
+  if(navigator.onLine===false){setSync('wait');return}
+  syncBusy=true;setSync('busy');
+  try{if(full)await pull();await push();setSync(Object.keys(S.dirty).length?'wait':'ok')}
+  catch(e){console.warn('synchro',e);const m=String(e&&(e.message||e.code)||'');
+    if(/JWT|auth|401|403/i.test(m))setSync('err','Reconnectez-vous');else if(/relation|does not exist|42P01/i.test(m))setSync('err','Table absente (supabase.sql)');else setSync('wait')}
+  finally{syncBusy=false}}
+function queueSync(){setSync(!SB?'local':!USER?'login':'wait');clearTimeout(syncTimer);syncTimer=setTimeout(()=>sync(false),1500)}
+window.addEventListener('online',()=>sync(true));
+setInterval(()=>{if(Object.keys(S.dirty).length)sync(false)},60000);
+async function login(){const em=$('#lem').value.trim(),pw=$('#lpw').value;if(!em||!pw){toast('E-mail et mot de passe');return}
+  if(!SB){toast('Supabase non configuré (config.js)');return}
+  const{error}=await SB.auth.signInWithPassword({email:em,password:pw});if(error){toast('Connexion refusée : '+error.message);return}toast('Connecté');}
+async function logout(){if(!SB)return;await SB.auth.signOut();USER=null;setSync('login');render()}
+(async()=>{try{if(!CFG.supabaseUrl||!CFG.supabaseAnonKey||!window.supabase){setSync('local');return}
+  SB=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true}});
+  const{data}=await SB.auth.getSession();USER=data&&data.session?data.session.user:null;
+  SB.auth.onAuthStateChange((_e,sess)=>{const was=USER&&USER.id;USER=sess?sess.user:null;if(USER&&USER.id!==was){sync(true);if(V.view==='reglages')render()}else if(!USER)setSync('login')});
+  if(USER)await sync(true);else setSync('login')}catch(e){setSync('local')}})();
+if('serviceWorker' in navigator&&location.protocol==='https:'){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
+
+// ---------- Calcul des points ----------
+function arrowPts(type,k,z){if(z==null)return null;
+  if(type==='3D')return z<0?0:(S.settings.bareme3D[z]??0);
+  const t=type==='Safari'?S.settings.safari:k?S.settings.natureF2:S.settings.natureF1;return z==='T'?t[0]:z==='B'?t[1]:0}
+const cibleDone=(type,e)=>!!(e&&e.f&&e.f[0]!=null&&e.f[1]!=null);
+function scoreCible(type,e){if(!e||!e.f||(e.f[0]==null&&e.f[1]==null))return null;return(arrowPts(type,0,e.f[0])||0)+(arrowPts(type,1,e.f[1])||0)}
+function sessPiq(s,aid){return(s.piq&&s.piq[aid])||piqArcher(S.a[aid],s.type)}
+function distReelle(s,aid,ci,k){const e=((s.scores[aid]||{})[ci])||{};const ov=k?e.reel2:e.reel;if(ov!=null)return ov;
+  const p=S.p[s.parcoursId];const c=vols(p)[ci];if(!c)return null;const q=sessPiq(s,aid)[k];return q?num((c.dist||{})[q]):null}
+function totalArcher(s,aid){const p=S.p[s.parcoursId];if(!p)return 0;let t=0;vols(p).forEach((c,i)=>{t+=scoreCible(s.type,(s.scores[aid]||{})[i])||0});return t}
+// Départage : nb de 11 puis de 10 (3D), nb de 20 puis de 15 (Nature)
+function departage(s,aid){const p=S.p[s.parcoursId];const v=s.type==='3D'?[S.settings.bareme3D[0],S.settings.bareme3D[1]]:s.type==='Safari'?S.settings.safari.slice():[S.settings.natureF1[0],S.settings.natureF1[1]];
+  const n=[0,0];if(p)vols(p).forEach((c,i)=>{const e=(s.scores[aid]||{})[i];if(!e||!e.f)return;[0,1].forEach(k=>{const x=arrowPts(s.type,k,e.f[k]);if(x===v[0])n[0]++;else if(x===v[1])n[1]++})});
+  return{v,n}}
+function nbDep(s,aid){return Object.values(s.scores[aid]||{}).filter(e=>e.dep).length}
+
+// ---------- Navigation ----------
+let V={view:'home'};
+const TABS=[['home','Accueil'],['new','Tirer'],['parcours','Parcours'],['archers','Archers'],['suivi','Suivi'],['reglages','Réglages']];
+function go(view,extra){if(view!=='tir')chStop();V=Object.assign({view},extra||{});render();window.scrollTo(0,0)}
+function render(){
+  const tabOf={tir:'new',detail:'home',pedit:'parcours'}[V.view]||V.view;
+  $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tabOf?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
+  const f={home:vHome,new:vNew,tir:vTir,detail:vDetail,parcours:vParcours,pedit:vPEdit,archers:vArchers,suivi:vSuivi,reglages:vReglages}[V.view]||vHome;
+  $('#app').innerHTML=f();
+  if(V.view==='pedit')refreshChecks();
+  if(V.view==='tir')updCh();
+}
+
+// ---------- Accueil ----------
+function vHome(){
+  const ss=list('s').sort((a,b)=>(b.date+b.updatedAt)>(a.date+a.updatedAt)?1:-1);
+  const enCours=ss.filter(s=>!s.done);
+  let h=`<h2>Bonjour 👋</h2>
+  <div class="kpis"><div class="kpi"><b>${list('p').length}</b><span>parcours</span></div>
+  <div class="kpi"><b>${list('a').length}</b><span>archers</span></div>
+  <div class="kpi"><b>${ss.length}</b><span>tirs enregistrés</span></div></div>
+  <div class="row" style="margin-bottom:14px"><button class="btn p big grow" onclick="go('new')">🎯 Nouveau tir de parcours</button></div>`;
+  if(!list('p').length||!list('a').length)h+=`<div class="warn">Pour commencer : créez un <a href="#" onclick="go('parcours');return false">parcours</a> et ajoutez vos <a href="#" onclick="go('archers');return false">archers</a>.</div>`;
+  if(enCours.length){h+='<h3>En cours</h3>'+enCours.map(itemSession).join('')}
+  const fin=ss.filter(s=>s.done);
+  h+='<h3>Derniers tirs</h3>'+(fin.length?fin.slice(0,15).map(itemSession).join(''):'<div class="empty">Aucun tir terminé pour l\'instant.</div>');
+  return h}
+function itemSession(s){const p=S.p[s.parcoursId]||{nom:'(parcours supprimé)',cibles:[]};
+  const noms=s.archerIds.map(id=>(S.a[id]||{}).nom||'?').join(', ');
+  return `<div class="item" onclick="go('${s.done?'detail':'tir'}',{sid:'${s.id}'})"><div class="grow"><b>${esc(p.nom)}</b> ${badge(s.type)}<div class="muted">${fdate(s.date)} · ${esc(noms)}</div></div>${s.done?'':'<span class="badge">en cours · cible '+(s.cur+1)+'</span>'}</div>`}
+
+// ---------- Nouveau tir ----------
+function vNew(){
+  const ps=list('p'),as=list('a').sort((a,b)=>a.nom.localeCompare(b.nom));
+  if(!ps.length)return `<h2>Nouveau tir</h2><div class="empty">Aucun parcours.<br><br><button class="btn p" onclick="go('parcours')">Créer un parcours</button></div>`;
+  if(!as.length)return `<h2>Nouveau tir</h2><div class="empty">Aucun archer.<br><br><button class="btn p" onclick="go('archers')">Ajouter des archers</button></div>`;
+  const p0=S.p[V.np]||ps[0];
+  return `<h2>Nouveau tir</h2><div class="card">
+  <div class="grid2"><div class="f"><label>Parcours</label><select id="np" onchange="V.np=this.value;render()">${ps.map(p=>`<option value="${p.id}" ${p.id===p0.id?'selected':''}>${esc(p.nom)} — ${typeLab(p.type)}, ${vols(p).length} ${p.type==='Safari'?'volées':'cibles'}</option>`).join('')}</select></div>
+  <div class="f"><label>Date</label><input type="date" id="nd" value="${today()}"></div></div>
+  <label>Archers sur le parcours (piquet ${typeLab(p0.type)} d'après le règlement)</label>
+  ${as.map(a=>{const pq=piqArcher(a,p0.type);return `<label class="item" style="cursor:pointer;color:var(--ink);font-size:15px"><input type="checkbox" value="${a.id}" class="na" style="width:22px;min-height:22px"> <span class="grow"><b>${esc(a.nom)}</b> <span class="muted">${esc([ARMES[a.arme],p0.type==='Safari'?AGES_U[a.ageU]:a.cat].filter(Boolean).join(' · '))}</span></span>${chip(pq[0])}${pq[1]!==pq[0]?chip(pq[1]):''}<span class="muted">${esc(piqTxt(pq,p0.type))}</span></label>`}).join('')}
+  <div class="f"><label>Note (météo, objectif de la séance…)</label><input id="nn" placeholder="ex. travail estimation en sous-bois"></div>
+  <button class="btn p big" style="width:100%" onclick="startSession()">Commencer le parcours ▶</button></div>`}
+function startSession(){const pid=$('#np').value;const ids=[...document.querySelectorAll('.na:checked')].map(x=>x.value);
+  if(!ids.length){toast('Cochez au moins un archer');return}
+  const p=S.p[pid];const s={id:newId(),parcoursId:pid,type:p.type,date:$('#nd').value||today(),archerIds:ids,scores:{},piq:{},cur:0,done:false,note:$('#nn').value};
+  ids.forEach(i=>{s.scores[i]={};s.piq[i]=piqArcher(S.a[i],p.type)});put('s',s);go('tir',{sid:s.id})}
+
+// ---------- Chrono ----------
+let CH={t0:null,h:null};
+const chLimit=()=>{const s=S.s[V.sid];return s&&s.type==='Nature'?S.settings.chronoN:s&&s.type==='Safari'?S.settings.chronoS:S.settings.chrono3D};
+function chStop(){if(CH.h)clearInterval(CH.h);CH={t0:null,h:null}}
+function chToggle(){if(CH.h){chStop();updCh();return}CH.t0=Date.now();CH.h=setInterval(updCh,250);updCh()}
+function updCh(){const el=$('#cht'),b=$('#chb');if(!el)return;const L=chLimit();
+  if(!CH.t0){el.textContent=L+' s';el.className='cht';b.textContent='▶ Lancer le chrono';return}
+  const r=L-Math.floor((Date.now()-CH.t0)/1000);
+  el.textContent=r>=0?r+' s':'Dépassé +'+(-r)+' s';
+  el.className='cht '+(r<0?'over':r<=Math.min(30,Math.round(L/3))?'warn':'');b.textContent='■ Arrêter'}
+
+// ---------- Saisie sur le terrain ----------
+function zonesHTML(s,aid,k,f){
+  if(s.type==='3D'){return S.settings.bareme3D.map((v,i)=>`<button class="z ${f[k]===i?'sel':''}" onclick="setF('${aid}',${k},${i})">${v}</button>`).join('')+`<button class="z m ${f[k]===-1?'sel':''}" onclick="setF('${aid}',${k},-1)">M<small>ratée</small></button>`}
+  const saf=s.type==='Safari';const t=saf?S.settings.safari:k?S.settings.natureF2:S.settings.natureF1;
+  return `<button class="z ${f[k]==='T'?'sel':''}" onclick="setF('${aid}',${k},'T')">${t[0]}<small>${saf?'centrale':'tué'}</small></button><button class="z ${f[k]==='B'?'sel':''}" onclick="setF('${aid}',${k},'B')">${t[1]}<small>${saf?'médiane':'blessé'}</small></button><button class="z m ${f[k]==='M'?'sel':''}" onclick="setF('${aid}',${k},'M')">0<small>${saf?'extérieur / ratée':'ratée'}</small></button>`}
+function estHTML(s,aid,ci,k,e){const reel=distReelle(s,aid,ci,k);const est=k?e.est2:e.est;
+  const ec=(est!=null&&reel!=null)?Math.round((est-reel)*10)/10:null;
+  return `<div class="est"><div><label>Distance estimée (m)</label><input type="number" inputmode="decimal" step="0.5" value="${est??''}" onchange="setEst('${aid}',${k},'est',this.value)"></div>
+  <div><label>Distance réelle (m)</label><input type="number" inputmode="decimal" step="0.5" value="${reel??''}" placeholder="non connue" onchange="setEst('${aid}',${k},'reel',this.value)"></div>
+  <div class="ecart ${ec>0?'plus':ec<0?'moins':''}" title="+ = surestimé, − = sous-estimé">${ec==null?'écart –':(ec>0?'+':'')+ec+' m'}</div></div>`}
+function vTir(){const s=S.s[V.sid];if(!s)return vHome();const p=S.p[s.parcoursId];
+  if(!p||!p.cibles.length)return '<div class="empty">Parcours introuvable ou sans cible.</div>';
+  const VL=vols(p);const N=VL.length;if(s.cur>=N)s.cur=N-1;const ci=s.cur,c=VL[ci];const saf=s.type==='Safari';
+  const allDone=i=>s.archerIds.every(a=>cibleDone(s.type,(s.scores[a]||{})[i]));
+  const gtxt=c.grp?(p.type==='3D'?'Groupe '+c.grp:GIB[c.grp]):'';const tl=saf?(p.double?'Volée':'Butte'):'Cible';
+  let h=`<div class="row" style="justify-content:space-between"><div><b>${esc(p.nom)}</b> ${badge(s.type)}<div class="muted">${fdate(s.date)}</div></div><button class="btn" onclick="go('detail',{sid:'${s.id}'})">Tableau</button></div>
+  <div class="card"><div class="cible-head"><div><div class="muted">${tl}${saf&&p.double?' · butte '+volLab(p,ci):''}</div><div class="cnum">${ci+1} <span class="muted" style="font-size:16px">/ ${N}</span></div></div>
+  <div style="text-align:right"><div style="font-size:18px;font-weight:700">${esc(c.animal||'—')}</div>${gtxt?`<div class="muted">${gtxt}</div>`:''}${c.note?`<div class="muted">${esc(c.note)}</div>`:''}</div></div>
+  ${S.settings.chronoOn?`<div class="chrono"><button class="btn" id="chb" onclick="chToggle()">▶ Lancer le chrono</button><span id="cht" class="cht">${chLimit()} s</span><span class="muted">2 flèches en ${chLimit()} s</span></div>`:''}
+  <div class="jump">${VL.map((x,i)=>`<button class="${i===ci?'cur':allDone(i)?'done':''}" onclick="jump(${i})">${i+1}</button>`).join('')}</div></div>`;
+  for(const aid of s.archerIds){const a=S.a[aid]||{nom:'?'};const e=(s.scores[aid]||{})[ci]||{};const f=e.f||[null,null];
+    const pts=scoreCible(s.type,e);const pq=sessPiq(s,aid);
+    h+=`<div class="card arch"><div class="row" style="justify-content:space-between"><div><b style="font-size:17px">${esc(a.nom)}</b> ${chip(pq[0])}${pq[1]!==pq[0]?chip(pq[1]):''}<span class="muted">${esc(piqTxt(pq,s.type))}</span><div class="muted">Total : <b>${totalArcher(s,aid)}</b></div></div><div class="pts">${pts==null?'–':pts}<div class="muted" style="font-size:11px;font-weight:400">pts cible</div></div></div>`;
+    if(saf){const dk=distReelle(s,aid,ci,0);
+      h+=`<div class="muted" style="margin:4px 0">Distance connue : <b>${dk!=null?dk+' m':'?'}</b></div><label>Flèche 1</label><div class="zones">${zonesHTML(s,aid,0,f)}</div><label>Flèche 2</label><div class="zones">${zonesHTML(s,aid,1,f)}</div>`;
+    }else if(s.type==='3D'){
+      h+=`<label>Flèche 1</label><div class="zones">${zonesHTML(s,aid,0,f)}</div><label>Flèche 2</label><div class="zones">${zonesHTML(s,aid,1,f)}</div>`+estHTML(s,aid,ci,0,e);
+    }else{
+      h+=`<div class="fl">1<sup>re</sup> flèche ${chip(pq[0])}<span class="muted">${esc(pq[0]||'')}</span></div><div class="zones">${zonesHTML(s,aid,0,f)}</div>${estHTML(s,aid,ci,0,e)}
+      <div class="fl" style="margin-top:12px">2<sup>e</sup> flèche ${chip(pq[1])}<span class="muted">${esc(pq[1]||'')}</span></div><div class="zones">${zonesHTML(s,aid,1,f)}</div>${estHTML(s,aid,ci,1,e)}`}
+    h+=`<div class="row" style="margin-top:10px"><button class="btn dep ${e.dep?'on':''}" onclick="setDep('${aid}')">⏱ ${e.dep?'Dépassement noté':'Dépassement de temps'}</button></div></div>`}
+  h+=`<div class="navbar"><button class="btn big" ${ci===0?'disabled':''} onclick="jump(${ci-1})">◀ Préc.</button>
+  ${ci<N-1?`<button class="btn p big" onclick="jump(${ci+1})">${saf?'Volée':'Cible'} suivante ▶</button>`:`<button class="btn p big" onclick="finish()">✓ Terminer</button>`}</div>`;
+  return h}
+function curS(){return S.s[V.sid]}
+function cell(s,aid){const sc=s.scores[aid]=s.scores[aid]||{};return sc[s.cur]=sc[s.cur]||{}}
+function jump(i){chStop();const s=curS();s.cur=i;put('s',s);render();window.scrollTo(0,0)}
+function setF(aid,k,v){const s=curS();const e=cell(s,aid);const f=e.f=e.f||[null,null];f[k]=(f[k]===v)?null:v;put('s',s);render()}
+function setDep(aid){const s=curS();const e=cell(s,aid);if(e.dep)delete e.dep;else e.dep=true;put('s',s);render()}
+function setEst(aid,k,field,val){const s=curS();const e=cell(s,aid);const n=num(val);
+  if(field==='reel'){const key=k?'reel2':'reel';delete e[key];const def=distReelle(s,aid,s.cur,k);if(n!=null&&n!==def)e[key]=n}
+  else{const key=k?'est2':'est';if(n==null)delete e[key];else e[key]=n}
+  put('s',s);render()}
+function finish(){chStop();const s=curS();const p=S.p[s.parcoursId];let manque=0;
+  vols(p).forEach((c,i)=>s.archerIds.forEach(a=>{if(!cibleDone(s.type,(s.scores[a]||{})[i]))manque++}));
+  const fin=()=>{s.done=true;put('s',s);toast('Parcours enregistré');go('detail',{sid:s.id})};
+  if(manque)ask(`${manque} saisie(s) incomplète(s). Terminer quand même ?`,'Terminer',fin);else fin()}
+
+// ---------- Tableau d'un tir ----------
+function vDetail(){const s=S.s[V.sid];if(!s)return vHome();const p=S.p[s.parcoursId]||{nom:'?',cibles:[]};
+  const ar=s.archerIds.map(id=>S.a[id]||{id,nom:'?'}).sort((a,b)=>{const ta=totalArcher(s,a.id),tb=totalArcher(s,b.id);if(tb!==ta)return tb-ta;const da=departage(s,a.id).n,db=departage(s,b.id).n;return(db[0]-da[0])||(db[1]-da[1])});
+  let h=`<h2>${esc(p.nom)} ${badge(s.type)}</h2><div class="muted" style="margin-bottom:10px">${fdate(s.date)}${s.note?' · '+esc(s.note):''}</div>
+  <div class="kpis">${ar.map((a,r)=>{const d=departage(s,a.id);const dp=nbDep(s,a.id);return `<div class="kpi"><b>${totalArcher(s,a.id)}</b><span>${r+1}. ${esc(a.nom)}<br>${d.v[0]} : ${d.n[0]} · ${d.v[1]} : ${d.n[1]}${dp?' · ⏱ '+dp:''}</span></div>`}).join('')}</div>
+  <div class="card tbl"><table><tr><th>#</th><th>Cible</th>${ar.map(a=>`<th>${esc(a.nom)}<br><span style="font-weight:400">pts · ${s.type==='Safari'?'distance':'estim./réel'}</span></th>`).join('')}</tr>`;
+  if(!p.cibles)p.cibles=[];vols(p).forEach((c,i)=>{h+=`<tr><td>${s.type==='Safari'?volLab(p,i):i+1}</td><td>${esc(c.animal||'')}</td>`+ar.map(a=>{const e=(s.scores[a.id]||{})[i]||{};const pt=scoreCible(s.type,e);
+    const er=k=>{const est=k?e.est2:e.est;const r=distReelle(s,a.id,i,k);return `${est!=null?est:'–'}/${r!=null?r:'–'}`};
+    return `<td><b style="color:${pt===0?'var(--danger)':'inherit'}">${pt==null?'–':pt}</b>${e.dep?' ⏱':''} <span class="muted">${s.type==='Nature'?er(0)+' · '+er(1):s.type==='Safari'?(distReelle(s,a.id,i,0)??'–'):er(0)} m</span></td>`}).join('')+'</tr>'});
+  h+=`</table></div><div class="row"><button class="btn p" onclick="reopen()">✏️ Reprendre / corriger la saisie</button><button class="btn d" onclick="ask('Supprimer ce tir ?','Supprimer',()=>{del('s','${s.id}');go('home')},true)">Supprimer</button></div>`;
+  return h}
+function reopen(){const s=curS();s.done=false;put('s',s);go('tir',{sid:s.id})}
+
+// ---------- Parcours ----------
+function vParcours(){const ps=list('p').sort((a,b)=>a.nom.localeCompare(b.nom));
+  return `<h2>Parcours</h2><div class="card"><h3 style="margin-top:0">Créer un parcours</h3>
+  <div class="grid2"><div class="f"><label>Nom</label><input id="pn" placeholder="ex. Bois de Smarves – automne"></div><div class="f"><label>Lieu</label><input id="pl"></div>
+  <div class="f"><label>Type</label><select id="pt" onchange="$('#pc').value={'3D':24,Nature:21,Safari:12}[this.value];$('#pdw').style.display=this.value==='Safari'?'':'none'">${TYPES.map(t=>`<option value="${t}">${typeLab(t)}</option>`).join('')}</select></div><div class="f"><label>Nombre de cibles / buttes</label><input id="pc" type="number" value="24" min="1" max="60"></div></div>
+  <label id="pdw" class="row" style="display:none;color:var(--ink);font-size:15px;margin-bottom:10px"><input type="checkbox" id="pd" checked style="width:22px;min-height:22px"> Parcours de 12 buttes tiré 2 fois (24 volées)</label>
+  <div class="muted" style="margin-bottom:10px">Règlements : 24 cibles en 3D (18 en équipe / double mixte), 21 en Nature, Safari UFOLEP 24 buttes ou 12 buttes tirées 2 fois.</div>
+  <button class="btn p" onclick="newParcours()">Créer et remplir les cibles</button></div>
+  ${ps.length?ps.map(p=>{const ck=parcoursChecks(p);return `<div class="item" onclick="go('pedit',{pid:'${p.id}'})"><div class="grow"><b>${esc(p.nom)}</b> ${badge(p.type)}<div class="muted">${esc(p.lieu||'')} · ${p.cibles.length} ${p.type==='Safari'?'buttes'+(p.double?' × 2':''):'cibles'}</div></div>${ck.nb?`<span class="badge n">⚠ ${ck.nb}</span>`:''}<span class="muted">Modifier ›</span></div>`}).join(''):'<div class="empty">Aucun parcours.</div>'}`}
+function newParcours(){const nom=$('#pn').value.trim();if(!nom){toast('Donnez un nom au parcours');return}
+  const n=Math.max(1,Math.min(60,parseInt($('#pc').value)||24));
+  const p={id:newId(),nom,lieu:$('#pl').value.trim(),type:$('#pt').value,double:$('#pt').value==='Safari'&&$('#pd').checked,cibles:Array.from({length:n},()=>({animal:'',grp:'',dist:{},note:''}))};
+  put('p',p);go('pedit',{pid:p.id})}
+function rangeFor(p,c,q){if(p.type==='3D')return R3D[q];return c.grp?RNAT[q][c.grp]:[5,999]}
+function cibleChecks(p,c){const w={};const d=q=>num((c.dist||{})[q]);
+  if(p.type==='Safari'){if(c.grp)for(const q of PIQ_SAF){const v=d(q),att=DSAF[c.grp][q];if(v!=null&&v!==att)w[q]=`distance réglementaire ${att} m`}return w}
+  for(const q of PIQUETS){const v=d(q);if(v==null)continue;const r=rangeFor(p,c,q);
+    if(v<r[0]||v>r[1])w[q]=r[1]===999?`minimum ${r[0]} m`:`hors fourchette ${q.toLowerCase()} : ${r[0]}–${r[1]} m`}
+  if(p.type==='3D'){const R=d('Rouge'),B=d('Bleu');if(R!=null&&B!=null&&(R-B<0||R-B>15))w.Rouge=(w.Rouge?w.Rouge+' ; ':'')+'le rouge doit être 0 à 15 m derrière le bleu'}
+  else{const seq=PIQUETS.map(d);for(let i=1;i<4;i++){if(seq[i]!=null){const prev=seq.slice(0,i).reverse().find(x=>x!=null);if(prev!=null&&seq[i]>prev)w[PIQUETS[i]]=(w[PIQUETS[i]]?w[PIQUETS[i]]+' ; ':'')+'doit être plus près que le piquet précédent'}}}
+  return w}
+function parcoursChecks(p){const N=p.cibles.length;let nb=0;const per=p.cibles.map(c=>{const w=cibleChecks(p,c);nb+=Object.keys(w).length;return w});
+  const rep=p.type==='3D'?REP3D[N]:p.type==='Safari'?REPSAF[N]:REPNAT[N];const cum=p.type==='3D'?CUM3D[N]:p.type==='Safari'?null:CUMNAT[N];
+  const counts={};p.cibles.forEach(c=>{if(c.grp)counts[c.grp]=(counts[c.grp]||0)+1});
+  const repL=[];if(rep)for(const g of Object.keys(rep)){const ok=(counts[g]||0)===rep[g];if(!ok)nb++;repL.push({g,n:counts[g]||0,att:rep[g],ok})}
+  const cumL=[];for(const q of piqList(p.type)){const vals=p.cibles.map(c=>num((c.dist||{})[q])).filter(v=>v!=null);if(!vals.length)continue;const tot=sum(vals);const r=cum&&cum[q];
+    const complet=vals.length===N;const ok=!r||!complet||(tot>=r[0]&&tot<=r[1]);if(!ok)nb++;cumL.push({q,tot,n:vals.length,r,complet,ok})}
+  return{per,rep,repL,cumL,nb,N}}
+function ctrlHTML(p){const ck=parcoursChecks(p);const lab=g=>p.type==='3D'?'Groupe '+g:GIB[g];
+  let h=`<h3 style="margin-top:0">Contrôle règlement ${p.type==='Safari'?'UFOLEP':'FFTA'}</h3>`;
+  if(ck.rep){h+=`<div class="muted" style="margin-bottom:4px">Répartition des cibles (${ck.N} cibles) :</div><div class="chips">${ck.repL.map(r=>`<span class="ck ${r.ok?'ok':'ko'}">${lab(r.g)} : ${r.n} / ${r.att}</span>`).join('')}</div>`}
+  else h+=`<div class="muted">Pas de répartition de référence pour ${ck.N} cibles (référence : ${p.type==='3D'?'24 ou 18':p.type==='Safari'?'12 ou 24':'21'} cibles).</div>`;
+  h+=`<div class="muted" style="margin:10px 0 4px">Cumul des distances :</div>`+(ck.cumL.length?`<div class="chips">${ck.cumL.map(c=>`<span class="ck ${c.ok?(c.r&&c.complet?'ok':''):'ko'}">${chip(c.q)}${c.q} : ${c.tot} m${c.r?` (attendu ${c.r[0]}–${c.r[1]})`:''}${c.complet?'':` · ${c.n}/${ck.N} cibles`}</span>`).join('')}</div>`:'<div class="muted">Aucune distance saisie.</div>');
+  const lignes=ck.per.map((w,i)=>Object.entries(w).map(([q,m])=>`<li>Cible ${i+1} – ${q} : ${esc(m)}</li>`).join('')).join('');
+  h+=lignes?`<ul class="warnlist">${lignes}</ul>`:'';
+  h+=`<div style="margin-top:8px;font-weight:700;color:${ck.nb?'var(--danger)':'var(--ok)'}">${ck.nb?'⚠ '+ck.nb+' point(s) à revoir':'✓ Conforme pour ce qui est saisi'}</div>`;
+  return h}
+function refreshChecks(){const p=S.p[V.pid];if(!p)return;const el=$('#ctrl');if(el)el.innerHTML=ctrlHTML(p);
+  p.cibles.forEach((c,i)=>{const w=cibleChecks(p,c);piqList(p.type).forEach(q=>{const inp=document.getElementById(`d-${i}-${q}`);if(!inp)return;inp.classList.toggle('bad',!!w[q]);inp.title=w[q]||''})})}
+function vPEdit(){const p=S.p[V.pid];if(!p)return vParcours();
+  const gOpts=c=>p.type==='3D'?['','1','2','3','4'].map(g=>`<option value="${g}" ${String(c.grp||'')===g?'selected':''}>${g?'Groupe '+g:'—'}</option>`).join(''):[''].concat(Object.keys(GIB)).map(g=>`<option value="${g}" ${(c.grp||'')===g?'selected':''}>${g?GIB[g]:'—'}</option>`).join('');
+  let h=`<div class="row" style="justify-content:space-between"><h2>${esc(p.nom)}</h2><button class="btn" onclick="go('parcours')">‹ Retour</button></div>
+  <div class="card"><div class="grid2"><div class="f"><label>Nom</label><input value="${esc(p.nom)}" onchange="pSet('nom',this.value)"></div><div class="f"><label>Lieu</label><input value="${esc(p.lieu)}" onchange="pSet('lieu',this.value)"></div>
+  <div class="f"><label>Type</label><select onchange="pSet('type',this.value)">${TYPES.map(t=>`<option value="${t}" ${p.type===t?'selected':''}>${typeLab(t)}</option>`).join('')}</select></div>
+  ${p.type==='Safari'?`<div class="f"><label>&nbsp;</label><label class="row" style="color:var(--ink);font-size:15px"><input type="checkbox" style="width:22px;min-height:22px" ${p.double?'checked':''} onchange="pSet('double',this.checked)"> Tiré 2 fois (${p.cibles.length*2} volées)</label></div>`:''}</div>
+  <div class="muted">${p.type==='Safari'?'Distances connues : choisissez le type de gibier, les distances des 4 piquets se remplissent d\'après le règlement UFOLEP (vert ≤ 12 ans, bleu 13-14, rouge 15-16, jaune adultes). Petits animaux : 2 blasons par butte.':p.type==='3D'?'Groupe de la cible : calculé avec la surface de la zone 8 × le diamètre de la zone 10 (groupe 1 ≥ 9000, 2 : 5000–8999, 3 : 2000–4999, 4 : 300–1999).':'Type de gibier selon la zone « tué » du blason (grands Ø 300, moyens Ø 225, petits Ø 150, petits animaux Ø 75 mm).'} Les distances hors règlement s'affichent en rouge.</div></div>
+  <div class="card" id="ctrl"></div>
+  <div class="card tbl"><table><tr><th>#</th><th>${p.type==='3D'?'Animal 3D':'Blason / animal'}</th><th>${p.type==='3D'?'Groupe':'Gibier'}</th>${piqList(p.type).map(q=>`<th>${chip(q)}${q} (m)</th>`).join('')}<th>Note</th><th></th></tr>`;
+  p.cibles.forEach((c,i)=>{h+=`<tr><td>${i+1}</td><td><input value="${esc(c.animal)}" onchange="cSet(${i},'animal',this.value)" placeholder="ex. sanglier"></td><td><select style="min-width:120px" onchange="cGrp(${i},this.value)">${gOpts(c)}</select></td>`+
+    piqList(p.type).map(q=>`<td><input id="d-${i}-${q}" type="number" inputmode="decimal" step="0.5" style="width:72px" value="${esc((c.dist||{})[q]??'')}" onchange="cDist(${i},'${q}',this.value)"></td>`).join('')+
+    `<td><input value="${esc(c.note)}" onchange="cSet(${i},'note',this.value)" placeholder="montée, sous-bois…"></td><td><button class="btn d" style="min-height:36px;padding:4px 10px" onclick="cDel(${i})">✕</button></td></tr>`});
+  h+=`</table><div class="row" style="margin-top:10px"><button class="btn" onclick="cAdd()">+ Ajouter une cible</button></div></div>
+  <button class="btn d" onclick="ask('Supprimer ce parcours ? Les tirs déjà faits restent mais perdront leurs cibles.','Supprimer',()=>{del('p','${p.id}');go('parcours')},true)">Supprimer le parcours</button>`;
+  return h}
+function pSet(k,v){const p=S.p[V.pid];p[k]=v;if(k==='type'){p.cibles.forEach(c=>{c.grp='';c.dist={}});p.double=false}put('p',p);if(k==='type'||k==='double')render()}
+function cGrp(i,g){const p=S.p[V.pid];const c=p.cibles[i];c.grp=g;if(p.type==='Safari'&&g){c.dist=Object.assign({},DSAF[g]);put('p',p);render();return}put('p',p);refreshChecks()}
+function cSet(i,k,v){const p=S.p[V.pid];p.cibles[i][k]=v;put('p',p)}
+function cDist(i,q,v){const p=S.p[V.pid];const c=p.cibles[i];c.dist=c.dist||{};const n=num(v);if(n==null)delete c.dist[q];else c.dist[q]=n;put('p',p);refreshChecks()}
+function cAdd(){const p=S.p[V.pid];p.cibles.push({animal:'',grp:'',dist:{},note:''});put('p',p);render()}
+function cDel(i){ask(`Supprimer la cible ${i+1} ?`,'Supprimer',()=>{const p=S.p[V.pid];p.cibles.splice(i,1);put('p',p);render()},true)}
+
+// ---------- Archers ----------
+function vArchers(){const as=list('a').sort((a,b)=>a.nom.localeCompare(b.nom));const ed=V.aid?S.a[V.aid]:null;
+  const o=ed||{nom:'',club:'',arme:'',cat:'',p3D:'',pN:'',ageU:'',pS:''};
+  const r3=regPiquets('3D',o.cat,o.arme),rN=regPiquets('Nature',o.cat,o.arme);
+  return `<h2>Archers</h2><div class="card"><h3 style="margin-top:0">${ed?'Modifier '+esc(ed.nom):'Ajouter un archer'}</h3>
+  <div class="grid2"><div class="f"><label>Nom</label><input id="an" value="${esc(o.nom)}"></div><div class="f"><label>Club</label><input id="ac" value="${esc(o.club)}"></div>
+  <div class="f"><label>Catégorie</label><select id="at" onchange="majAuto()"><option value=""></option>${CATS.map(x=>`<option ${o.cat===x?'selected':''}>${x}</option>`).join('')}</select>${o.catNote?`<div class="muted">Ancienne saisie : ${esc(o.catNote)}</div>`:''}</div>
+  <div class="f"><label>Arme</label><select id="aa" onchange="majAuto()"><option value=""></option>${Object.entries(ARMES).map(([k,v])=>`<option value="${k}" ${o.arme===k?'selected':''}>${v} (${k})</option>`).join('')}</select></div>
+  <div class="f"><label>Piquet en 3D</label><select id="ap3"><option value="" id="auto3">Auto (règlement)${r3?' : '+r3[0]:''}</option>${PIQUETS.map(x=>`<option ${o.p3D===x?'selected':''}>${x}</option>`).join('')}</select></div>
+  <div class="f"><label>Tranche d'âge UFOLEP (Safari)</label><select id="au"><option value=""></option>${Object.entries(AGES_U).map(([k,v])=>`<option value="${k}" ${o.ageU===k?'selected':''}>${v} → piquet ${AGE_PIQ[k].toLowerCase()}</option>`).join('')}</select></div>
+  <div class="f"><label>Piquet Safari forcé</label><select id="aps"><option value="">Auto (selon l'âge)</option>${PIQ_SAF.map(x=>`<option ${o.pS===x?'selected':''}>${x}</option>`).join('')}</select></div>
+  <div class="f"><label>Piquets en Nature (1re / 2e flèche)</label><select id="apn"><option value="" id="autoN">Auto (règlement)${rN?' : '+rN.join(' / '):''}</option>${['Rouge/Bleu','Blanc/Blanc','Rose/Rose'].map(x=>`<option ${o.pN===x?'selected':''}>${x.replace('/',' / ')}</option>`).join('')}</select></div></div>
+  <div class="muted" id="autoInfo" style="margin-bottom:10px">${autoInfo(o.cat,o.arme)}</div>
+  <div class="row"><button class="btn p" onclick="saveArcher()">${ed?'Enregistrer':'Ajouter'}</button>${ed?`<button class="btn" onclick="go('archers')">Annuler</button><button class="btn d" onclick="ask('Supprimer ${esc(ed.nom)} ?','Supprimer',()=>{del('a','${ed.id}');go('archers')},true)">Supprimer</button>`:''}</div></div>
+  ${as.length?as.map(a=>{const p3=piqArcher(a,'3D'),pn=piqArcher(a,'Nature'),ps=piqArcher(a,'Safari');return `<div class="item" onclick="go('archers',{aid:'${a.id}'})"><div class="grow"><b>${esc(a.nom)}</b><div class="muted">${esc([ARMES[a.arme],a.cat,a.club].filter(Boolean).join(' · '))}</div></div><div class="muted" style="text-align:right">3D ${chip(p3[0])}${esc(p3[0]||'?')}${a.p3D?' (forcé)':''}<br>Nature ${chip(pn[0])}${chip(pn[1])}${esc(pn[0]?pn.join('/'):'?')}${a.pN?' (forcé)':''}${ps[0]?`<br>Safari ${chip(ps[0])}${esc(ps[0])}${a.pS?' (forcé)':''}`:''}</div></div>`}).join(''):'<div class="empty">Aucun archer.</div>'}`}
+function autoInfo(cat,arme){if(!cat||!arme)return 'Choisissez la catégorie et l\'arme : le piquet est déduit du règlement. Forcez-le seulement en cas de surclassement.';
+  const r3=regPiquets('3D',cat,arme),rN=regPiquets('Nature',cat,arme);
+  if(!r3)return '⚠ En U11, seul l\'arc nu est ouvert d\'après le règlement.';
+  return `Règlement : 3D piquet ${r3[0]} · Nature ${rN[0]} puis ${rN[1]}.`}
+function majAuto(){const cat=$('#at').value,arme=$('#aa').value;const r3=regPiquets('3D',cat,arme),rN=regPiquets('Nature',cat,arme);
+  $('#auto3').textContent='Auto (règlement)'+(r3?' : '+r3[0]:'');$('#autoN').textContent='Auto (règlement)'+(rN?' : '+rN.join(' / '):'');$('#autoInfo').textContent=autoInfo(cat,arme)}
+function saveArcher(){const nom=$('#an').value.trim();if(!nom){toast('Nom obligatoire');return}
+  const a=V.aid?S.a[V.aid]:{id:newId()};Object.assign(a,{nom,club:$('#ac').value.trim(),arme:$('#aa').value,cat:$('#at').value,p3D:$('#ap3').value,pN:$('#apn').value.replace(/ /g,''),ageU:$('#au').value,pS:$('#aps').value});
+  delete a.catNote;put('a',a);toast('Archer enregistré');go('archers')}
+
+// ---------- Suivi entraîneur ----------
+const BANDES=[[0,10],[10,20],[20,30],[30,40],[40,999]];
+function bande(d){const b=BANDES.find(([x,y])=>d>=x&&d<y);return b?(b[1]===999?'40 m et +':b[0]+'–'+b[1]+' m'):'?'}
+function bar(lab,val,max,txt,cls){const w=max?Math.round(100*val/max):0;return `<div class="bar"><span class="lab">${lab}</span><span class="tr"><span class="fi ${cls||''}" style="width:${w}%;display:block"></span></span><span class="v">${txt}</span></div>`}
+const pc=(a,b)=>b?Math.round(100*a/b)+' %':'–';
+function vSuivi(){const as=list('a').sort((a,b)=>a.nom.localeCompare(b.nom));if(!as.length)return '<h2>Suivi</h2><div class="empty">Ajoutez des archers d\'abord.</div>';
+  const aid=V.aid&&S.a[V.aid]?V.aid:as[0].id;const type=V.type||'3D';
+  let h=`<h2>Suivi entraîneur</h2><div class="card row"><div class="grow"><label>Archer</label><select onchange="go('suivi',{aid:this.value,type:'${type}'})">${as.map(a=>`<option value="${a.id}" ${a.id===aid?'selected':''}>${esc(a.nom)}</option>`).join('')}</select></div>
+  <div><label>Discipline</label><select onchange="go('suivi',{aid:'${aid}',type:this.value})">${TYPES.map(t=>`<option value="${t}" ${type===t?'selected':''}>${typeLab(t)}</option>`).join('')}</select></div></div>`;
+  const saf=type==='Safari';const ss=list('s').filter(s=>s.archerIds.includes(aid)&&s.type===type&&S.p[s.parcoursId]).sort((a,b)=>a.date<b.date?1:-1);
+  if(!ss.length)return h+'<div class="empty">Aucun tir '+type+' pour cet archer.</div>';
+  const cib=[],arr=[],est=[];let dep=0;
+  ss.forEach(s=>{const p=S.p[s.parcoursId];dep+=nbDep(s,aid);vols(p).forEach((c,i)=>{const e=(s.scores[aid]||{})[i];if(!cibleDone(s.type,e))return;
+    cib.push({s,p,c,i,e,pts:scoreCible(s.type,e)});
+    [0,1].forEach(k=>{const reel=distReelle(s,aid,i,k);const z=e.f[k];const v=arrowPts(type,k,z);
+      arr.push({k,z,v,reel,grp:c.grp,vital:type==='3D'?(z>=0&&z<=2):z==='T'});
+      const es=k?e.est2:e.est;if(reel!=null&&es!=null&&(type==='Nature'||k===0))est.push({est:es,reel})})})});
+  const n=cib.length;const tot=sum(cib.map(r=>r.pts));const zero=cib.filter(r=>r.pts===0);
+  const ecAbs=est.length?sum(est.map(r=>Math.abs(r.est-r.reel)))/est.length:null;const ecSig=est.length?sum(est.map(r=>r.est-r.reel))/est.length:null;
+  h+=`<div class="kpis"><div class="kpi"><b>${ss.length}</b><span>parcours tirés</span></div><div class="kpi"><b>${n?(tot/n).toFixed(1):'–'}</b><span>points moyens / ${saf?'volée':'cible'} (max ${type==='3D'?2*S.settings.bareme3D[0]:saf?2*S.settings.safari[0]:S.settings.natureF1[0]+S.settings.natureF2[0]})</span></div>
+  <div class="kpi"><b>${pc(n-zero.length,n)}</b><span>cibles touchées</span></div>
+  ${saf?'':`<div class="kpi"><b>${ecAbs!=null?ecAbs.toFixed(1)+' m':'–'}</b><span>écart moyen d'estimation</span></div>
+  <div class="kpi"><b>${ecSig!=null?(ecSig>0?'+':'')+ecSig.toFixed(1)+' m':'–'}</b><span>${ecSig==null?'tendance':ecSig>0.5?'a tendance à surestimer':ecSig<-0.5?'a tendance à sous-estimer':'estimation équilibrée'}</span></div>`}
+  <div class="kpi"><b>${dep}</b><span>dépassement(s) de temps</span></div></div>`;
+  h+='<div class="card"><h3 style="margin-top:0">Répartition des impacts</h3>';
+  if(type==='3D'){const B=S.settings.bareme3D;const ta=arr.length;B.forEach((v,i)=>{const c=arr.filter(a=>a.z===i).length;h+=bar('Zone '+v,c,ta,c+' ('+pc(c,ta)+')')});const m=arr.filter(a=>a.z===-1).length;h+=bar('Ratées',m,ta,m+' ('+pc(m,ta)+')','r')}
+  else if(saf){const t=S.settings.safari;const ta=arr.length;const c=z=>arr.filter(a=>a.z===z).length;
+    h+=bar('Centrale ('+t[0]+')',c('T'),ta,c('T')+' ('+pc(c('T'),ta)+')')+bar('Médiane ('+t[1]+')',c('B'),ta,c('B')+' ('+pc(c('B'),ta)+')','o')+bar('0',c('M'),ta,c('M')+' ('+pc(c('M'),ta)+')','r');
+    h+='<div class="fl" style="margin-top:12px">Par type de gibier</div><div class="tbl"><table><tr><th>Gibier</th><th>Flèches</th><th>Pts / flèche</th><th>Zone centrale</th></tr>'+['G','M','P','A'].map(g=>{const A=arr.filter(a=>a.grp===g);return A.length?`<tr><td>${GIB[g]}</td><td>${A.length}</td><td><b>${(sum(A.map(a=>a.v))/A.length).toFixed(1)}</b></td><td>${pc(A.filter(a=>a.z==='T').length,A.length)}</td></tr>`:''}).join('')+'</table></div>'}
+  else{[0,1].forEach(k=>{const A=arr.filter(a=>a.k===k);const t=k?S.settings.natureF2:S.settings.natureF1;const c=z=>A.filter(a=>a.z===z).length;
+    h+=`<div class="fl" style="margin-top:${k?12:0}px">${k?'2<sup>e</sup>':'1<sup>re</sup>'} flèche</div>`+bar('Tué ('+t[0]+')',c('T'),A.length,c('T')+' ('+pc(c('T'),A.length)+')')+bar('Blessé ('+t[1]+')',c('B'),A.length,c('B')+' ('+pc(c('B'),A.length)+')','o')+bar('Ratée',c('M'),A.length,c('M')+' ('+pc(c('M'),A.length)+')','r')})}
+  h+='</div>';
+  const parB={};arr.forEach(a=>{if(a.reel==null)return;const k=bande(a.reel);const o=parB[k]=parB[k]||{n:0,pts:0,vit:0,ne:0,ec:0,sig:0};o.n++;o.pts+=a.v;if(a.vital)o.vit++});
+  est.forEach(r=>{const o=parB[bande(r.reel)];if(!o)return;o.ne++;o.ec+=Math.abs(r.est-r.reel);o.sig+=r.est-r.reel});
+  const keys=BANDES.map(b=>bande(b[0])).filter(k=>parB[k]);
+  if(!saf)h+=`<div class="card"><h3 style="margin-top:0">Par distance réelle</h3>${keys.length?`<div class="tbl"><table><tr><th>Distance</th><th>Flèches</th><th>Pts / flèche</th><th>${type==='3D'?'Zone vitale (11-10-8)':saf?'Zone centrale':'Zone tué'}</th><th>Écart estim.</th><th>Tendance</th></tr>${keys.map(k=>{const o=parB[k];const sg=o.ne?o.sig/o.ne:null;return `<tr><td>${k}</td><td>${o.n}</td><td><b>${(o.pts/o.n).toFixed(1)}</b></td><td>${pc(o.vit,o.n)}</td><td>${o.ne?(o.ec/o.ne).toFixed(1)+' m':'–'}</td><td>${sg==null?'–':(sg>0?'+':'')+sg.toFixed(1)+' m'}</td></tr>`}).join('')}</table></div>`:'<div class="muted">Renseignez les distances réelles des cibles pour voir cette analyse.</div>'}</div>`;
+  h+=`<div class="card"><h3 style="margin-top:0">Cibles à zéro (${zero.length})</h3>${zero.length?`<div class="tbl"><table><tr><th>Date</th><th>Parcours</th><th>Cible</th><th>Réel</th><th>Estimé</th></tr>${zero.slice(0,40).map(r=>{const re=distReelle(r.s,aid,r.i,0);return `<tr><td>${fdate(r.s.date)}</td><td>${esc(r.p.nom)}</td><td>${r.i+1} ${esc(r.c.animal||'')}</td><td>${re??'–'}</td><td>${r.e.est??'–'}</td></tr>`}).join('')}</table></div>`:'<div class="muted">Aucune 👏</div>'}</div>`;
+  h+=`<div class="card"><h3 style="margin-top:0">Progression par parcours</h3>`;const mx=Math.max(...ss.map(s=>totalArcher(s,aid)),1);
+  ss.slice(0,15).forEach(s=>{const t=totalArcher(s,aid);const d=departage(s,aid);const nb=(S.p[s.parcoursId].cibles||[]).length;h+=bar(fdate(s.date),t,mx,`${t} pts · ${d.v[0]}:${d.n[0]} ${d.v[1]}:${d.n[1]}`)});
+  return h+'</div>'}
+
+// ---------- Réglages ----------
+function vReglages(){const st=S.settings;
+  return `<h2>Réglages</h2><div class="card"><h3 style="margin-top:0">Barèmes (règlements FFTA août 2026)</h3>
+  <div class="muted" style="margin-bottom:8px">3D : 2 flèches comptées, 11 / 10 / 8 / 5. Nature : 2 flèches comptées, 1re flèche 20 / 15, 2e flèche 15 / 10 (max 35 par cible).</div>
+  <div class="row">${st.bareme3D.map((v,i)=>`<div style="width:80px"><label>3D zone ${i+1}</label><input type="number" value="${v}" onchange="setB('bareme3D',${i},this.value)"></div>`).join('')}</div>
+  <div class="row" style="margin-top:8px"><div style="width:110px"><label>1re · tué</label><input type="number" value="${st.natureF1[0]}" onchange="setB('natureF1',0,this.value)"></div><div style="width:110px"><label>1re · blessé</label><input type="number" value="${st.natureF1[1]}" onchange="setB('natureF1',1,this.value)"></div>
+  <div style="width:110px"><label>2e · tué</label><input type="number" value="${st.natureF2[0]}" onchange="setB('natureF2',0,this.value)"></div><div style="width:110px"><label>2e · blessé</label><input type="number" value="${st.natureF2[1]}" onchange="setB('natureF2',1,this.value)"></div></div>
+  <div class="row" style="margin-top:8px"><div style="width:130px"><label>Safari · centrale</label><input type="number" value="${st.safari[0]}" onchange="setB('safari',0,this.value)"></div><div style="width:130px"><label>Safari · médiane</label><input type="number" value="${st.safari[1]}" onchange="setB('safari',1,this.value)"></div></div>
+  <div class="muted" style="margin-top:6px">Safari UFOLEP : 2 flèches comptées, 20 / 15 / 0 (max 40 par butte, 960 sur 24). Départage par défaut : nombre de 20 puis de 15 (non précisé dans le règlement).</div>
+  <div class="row" style="margin-top:10px"><button class="btn" onclick="resetB()">Revenir aux barèmes du règlement</button></div></div>
+  <div class="card"><h3 style="margin-top:0">Chrono</h3><label class="row" style="color:var(--ink);font-size:15px"><input type="checkbox" style="width:22px;min-height:22px" ${st.chronoOn?'checked':''} onchange="S.settings.chronoOn=this.checked;putSettings()"> Afficher le chrono pendant la saisie</label>
+  <div class="row"><div style="width:140px"><label>3D (secondes)</label><input type="number" value="${st.chrono3D}" onchange="setC('chrono3D',this.value)"></div><div style="width:140px"><label>Nature (secondes)</label><input type="number" value="${st.chronoN}" onchange="setC('chronoN',this.value)"></div><div style="width:140px"><label>Safari (secondes)</label><input type="number" value="${st.chronoS}" onchange="setC('chronoS',this.value)"></div></div>
+  <div class="muted">Règlement : 90 s pour 2 flèches en 3D (1 dépassement toléré par parcours, ensuite la meilleure flèche est supprimée) ; 45 s en Nature (1er dépassement = avertissement, ensuite la ou les flèches hors délai sont annulées) ; 2 min par volée en Safari UFOLEP.</div></div>
+  <div class="card"><h3 style="margin-top:0">Compte et synchronisation</h3>
+  ${!SB?`<div class="warn">Supabase n'est pas configuré (fichier config.js) : les données restent sur cet appareil.</div>`:USER?`<p>Connecté : <b>${esc(USER.email||'')}</b></p><div class="row"><button class="btn p" onclick="sync(true)">Synchroniser maintenant</button><button class="btn" onclick="logout()">Se déconnecter</button><span class="muted">${Object.keys(S.dirty).length} élément(s) en attente</span></div>`:`<p class="muted">Connectez-vous avec le même compte que le Carnet de l'entraîneur.</p><div class="grid2"><div class="f"><label>E-mail</label><input id="lem" type="email" autocomplete="username"></div><div class="f"><label>Mot de passe</label><input id="lpw" type="password" autocomplete="current-password"></div></div><button class="btn p" onclick="login()">Se connecter</button>`}
+  <p class="muted" style="margin-top:10px">Tout est enregistré immédiatement sur cet appareil, même sans réseau, et envoyé dès que le réseau revient. Une fois l'appli installée, elle s'ouvre aussi sans réseau.</p></div>
+  <div class="card"><h3 style="margin-top:0">Export / import</h3><p class="muted">Pour sauvegarder, récupérer les données de la version Claude (copier là-bas, coller ici) ou plus tard les passer au Carnet de l'entraîneur.</p>
+  <button class="btn" onclick="exportJ()">Copier toutes les données</button>
+  <div class="f" style="margin-top:10px"><label>Coller des données à importer (fusion, les plus récentes gagnent)</label><textarea id="imp"></textarea></div><button class="btn" onclick="importJ()">Importer</button></div>`}
+function setB(k,i,v){const n=num(v);if(n==null)return;S.settings[k][i]=n;putSettings();toast('Barème mis à jour')}
+function resetB(){const d=blankSettings();Object.assign(S.settings,{bareme3D:d.bareme3D,natureF1:d.natureF1,natureF2:d.natureF2,safari:d.safari});putSettings();render();toast('Barèmes du règlement rétablis')}
+function setC(k,v){const n=parseInt(v);if(!n||n<5)return;S.settings[k]=n;putSettings()}
+function exportJ(){const d=JSON.stringify({app:'parcours-3d-nature',version:'0.3',export:new Date().toISOString(),parcours:S.p,archers:S.a,sessions:S.s,settings:S.settings});
+  try{navigator.clipboard.writeText(d).then(()=>toast('Données copiées'),()=>{$('#imp').value=d;toast('Copiez le texte affiché')})}catch(e){$('#imp').value=d;toast('Copiez le texte affiché')}}
+function importJ(){let d;try{d=JSON.parse($('#imp').value)}catch(e){toast('Texte illisible');return}let n=0;
+  for(const[k,src]of[['p',d.parcours],['a',d.archers],['s',d.sessions]]){for(const o of Object.values(src||{})){const l=S[k][o.id];if(!l||(o.updatedAt||0)>(l.updatedAt||0)){S[k][o.id]=o;S.dirty[k+'-'+o.id]=1;n++}}}
+  migrate();persist();queueSync();toast(n+' élément(s) importé(s)');render()}
+
+if(S.mig<2)migrate();
+render();setSync('local');
+
+</script>
+</body>
+</html>
