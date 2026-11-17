@@ -113,6 +113,7 @@ input.bad{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 
 .disc{border-left:5px solid var(--accent)}.disc.dn{border-left-color:var(--gold)}.disc.ds{border-left-color:var(--est-moins-ink)}
 .disc-h{display:flex;align-items:center;gap:10px;justify-content:space-between}.disc-h .badge{font-size:15px;padding:4px 12px}
 .disc h3{margin:14px 0 6px}.regle{margin:0 0 12px;padding-left:20px;font-size:14px;color:var(--muted)}.regle li{margin:2px 0}
+.monpiq{margin:10px 0 6px;padding:8px 10px;background:var(--sunk);border-radius:8px}
 </style>
 </head>
 <body>
@@ -303,8 +304,8 @@ function nbDep(s,aid){return Object.values(s.scores[aid]||{}).filter(e=>e.dep).l
 // ---------- Navigation ----------
 let V={view:'home'};
 const TABS=[['home','Accueil'],['new','Tirer'],['parcours','Parcours'],['archers','Archers'],['suivi','Suivi'],['reglages','Réglages']];
-const TABS_ARCHER=[['a-tirs','Mes tirs'],['a-tirer','Tirer'],['a-suivi','Mon suivi'],['a-compte','Mon compte']];
-const VUES_ARCHER=['a-tirs','a-tirer','a-suivi','a-compte','tir','bienvenue','login'];
+const TABS_ARCHER=[['a-tirs','Mes tirs'],['a-tirer','Tirer'],['a-suivi','Mon suivi'],['a-regles','Disciplines'],['a-compte','Mon compte']];
+const VUES_ARCHER=['a-tirs','a-tirer','a-suivi','a-regles','a-compte','tir','bienvenue','login'];
 function go(view,extra){if(view!=='tir')chStop();V=Object.assign({view},extra||{});render();window.scrollTo(0,0)}
 function render(){
   if(ROLE==='archer'&&!VUES_ARCHER.includes(V.view))V={view:'a-tirs'};
@@ -312,7 +313,7 @@ function render(){
   $('#nav').innerHTML=(ROLE==='archer'?TABS_ARCHER:TABS).map(([k,l])=>`<button class="${k===tabOf?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
   if(V.view==='login'||V.view==='bienvenue'){$('#nav').style.display='none';$('#app').innerHTML=V.view==='login'?vLogin():vBienvenue();return}
   $('#nav').style.display='';
-  const f={home:vHome,new:vNew,tir:vTir,detail:vDetail,parcours:vParcours,pedit:vPEdit,archers:vArchers,suivi:vSuivi,reglages:vReglages,'a-tirs':vATirs,'a-tirer':vATirer,'a-suivi':vASuivi,'a-compte':vACompte}[V.view]||vHome;
+  const f={home:vHome,new:vNew,tir:vTir,detail:vDetail,parcours:vParcours,pedit:vPEdit,archers:vArchers,suivi:vSuivi,reglages:vReglages,'a-tirs':vATirs,'a-tirer':vATirer,'a-suivi':vASuivi,'a-compte':vACompte,'a-regles':vARegles}[V.view]||vHome;
   $('#app').innerHTML=f();
   if(V.view==='pedit')refreshChecks();
   if(V.view==='tir')updCh();
@@ -647,6 +648,11 @@ function aDemarrer(){const L=curLink();if(!L)return;const aid=L.archer_key.slice
   if(L.settings)['bareme3D','natureF1','natureF2','safari'].forEach(k=>{if(L.settings[k])S.settings[k]=L.settings[k]});
   const s={id:newId(),parcoursId:p.id,type:p.type,date:$('#ad').value||today(),archerIds:[aid],scores:{[aid]:{}},piq:{[aid]:piqArcher(fiche,p.type)},cur:0,done:false,source:'archer',coach:L.coach,archerKey:L.archer_key};
   put('s',s);go('tir',{sid:s.id})}
+function vARegles(){const L=curLink();const f=(L&&L.archer)||null;
+  return `<h2>Disciplines</h2><p class="muted">Le résumé des règlements, et votre piquet pour chaque discipline.</p>`+TYPES.map(t=>{const R=REGLES[t];const pq=f?piqArcher(f,t):null;
+    return `<div class="card disc ${R.cls}"><div class="disc-h">${badge(t)}<span class="muted">${R.src}</span></div>
+    ${pq&&pq[0]?`<div class="monpiq">Votre piquet : ${chip(pq[0])}${pq[1]&&pq[1]!==pq[0]?chip(pq[1]):''}<b>${esc(piqTxt(pq,t))}</b></div>`:''}
+    ${regle(R.items)}</div>`}).join('')}
 function vACompte(){const L=MOI||[];let h=`<h2>Mon compte</h2><div class="card"><p>Connecté : <b>${esc(USER&&USER.email||'')}</b></p><div class="row"><button class="btn" onclick="sync(true);loadMoi()">Actualiser</button><button class="btn" onclick="logout()">Se déconnecter</button></div></div>`;
   h+=L.map(x=>{const f=x.archer||{};return `<div class="card"><h3 style="margin-top:0">Ma fiche : ${esc(f.nom||x.archer_nom||'')}</h3><div class="muted">${esc([ARMES[f.arme],f.cat,AGES_U[f.ageU]].filter(Boolean).join(' · ')||'Catégorie et arme à renseigner par votre entraîneur')}</div>
     <div style="margin-top:8px">3D : ${chip(piqArcher(f,'3D')[0])}${esc(piqTxt(piqArcher(f,'3D'),'3D'))}<br>Nature : ${esc(piqTxt(piqArcher(f,'Nature'),'Nature'))}<br>Safari : ${esc(piqTxt(piqArcher(f,'Safari'),'Safari'))}</div></div>`}).join('');
@@ -654,30 +660,34 @@ function vACompte(){const L=MOI||[];let h=`<h2>Mon compte</h2><div class="card">
   return h}
 
 // ---------- Réglages ----------
+const REGLES={
+  '3D':{cls:'d3',src:'Règlement FFTA · août 2026',items:['24 cibles (18 en équipe ou double mixte), 2 flèches comptées par cible','Zones : 11 / 10 / 8 / 5, 0 hors zone','90 s pour les 2 flèches ; 1 dépassement toléré par parcours, ensuite la meilleure flèche est supprimée','Piquets : rouge 10–45 m, bleu 5–30 m, blanc 5–25 m, rose 5–20 m ; le rouge 0 à 15 m derrière le bleu','Distances inconnues : l\'archer les estime','Égalité : nombre de 11, puis de 10']},
+  Nature:{cls:'dn',src:'Règlement FFTA · août 2026',items:['21 cibles, 2 flèches toujours tirées et comptées','1re flèche : 20 (tué) / 15 (blessé) ; 2e flèche : 15 / 10 ; max 35 par cible, 735 au total','Adultes : 1re flèche du piquet rouge, 2e du bleu ; U13/U15 blanc ; U11 rose','45 s ; 1er dépassement = avertissement, ensuite la ou les flèches hors délai sont annulées','Distances inconnues : l\'archer les estime','Égalité : nombre de 20, puis de 15']},
+  Safari:{cls:'ds',src:'Règlement d\'arbitrage UFOLEP · 2015',items:['24 buttes, ou 12 buttes tirées 2 fois ; distances connues','2 flèches comptées : 20 (centrale) / 15 (médiane) / 0 ; max 40 par butte, 960 au total','Piquets : vert jusqu\'à 12 ans, bleu 13-14 ans, rouge 15-16 ans, jaune adultes','2 min par volée','Égalité : nombre de 20, puis de 15 (choix par défaut, non précisé dans le règlement)']}};
+const regle=(items)=>`<ul class="regle">${items.map(x=>`<li>${x}</li>`).join('')}</ul>`;
 function vReglages(){const st=S.settings;
   const num_=(lab,k,i,w)=>`<div style="width:${w||100}px"><label>${lab}</label><input type="number" value="${st[k][i]}" onchange="setB('${k}',${i},this.value)"></div>`;
   const chrono=(k)=>`<div style="width:150px"><label>Chrono (secondes)</label><input type="number" value="${st[k]}" onchange="setC('${k}',this.value)"></div>`;
-  const regle=(items)=>`<ul class="regle">${items.map(x=>`<li>${x}</li>`).join('')}</ul>`;
   return `<h2>Réglages</h2>
   <div class="card"><label class="row" style="color:var(--ink);font-size:15px;margin:0"><input type="checkbox" style="width:22px;min-height:22px" ${st.chronoOn?'checked':''} onchange="S.settings.chronoOn=this.checked;putSettings()"> Afficher le chrono pendant la saisie (entraîneur uniquement)</label></div>
 
   <div class="card disc d3"><div class="disc-h">${badge('3D')}<span class="muted">Règlement FFTA · août 2026</span></div>
   <h3>Barème</h3><div class="row">${st.bareme3D.map((v,i)=>num_('Zone '+(i+1),'bareme3D',i,80)).join('')}</div>
   <h3>Temps</h3><div class="row">${chrono('chrono3D')}</div>
-  <h3>Rappel du règlement</h3>${regle(['24 cibles (18 en équipe ou double mixte), 2 flèches comptées par cible','90 s pour les 2 flèches ; 1 dépassement toléré par parcours, ensuite la meilleure flèche est supprimée','Piquets : rouge 10–45 m, bleu 5–30 m, blanc 5–25 m, rose 5–20 m ; le rouge 0 à 15 m derrière le bleu','Égalité : nombre de 11, puis de 10'])}
+  <h3>Rappel du règlement</h3>${regle(REGLES['3D'].items)}
   <button class="btn" onclick="resetB('3D')">Revenir au barème du règlement 3D</button></div>
 
   <div class="card disc dn"><div class="disc-h">${badge('Nature')}<span class="muted">Règlement FFTA · août 2026</span></div>
   <h3>Barème</h3><div class="row">${num_('1re flèche · tué','natureF1',0,130)}${num_('1re flèche · blessé','natureF1',1,130)}</div>
   <div class="row" style="margin-top:6px">${num_('2e flèche · tué','natureF2',0,130)}${num_('2e flèche · blessé','natureF2',1,130)}</div>
   <h3>Temps</h3><div class="row">${chrono('chronoN')}</div>
-  <h3>Rappel du règlement</h3>${regle(['21 cibles, 2 flèches toujours tirées et comptées (max 35 par cible, 735 au total)','Adultes : 1re flèche du piquet rouge, 2e du bleu ; U13/U15 blanc ; U11 rose','45 s ; 1er dépassement = avertissement, ensuite la ou les flèches hors délai sont annulées','Égalité : nombre de 20, puis de 15'])}
+  <h3>Rappel du règlement</h3>${regle(REGLES['Nature'].items)}
   <button class="btn" onclick="resetB('Nature')">Revenir au barème du règlement Nature</button></div>
 
   <div class="card disc ds"><div class="disc-h">${badge('Safari')}<span class="muted">Règlement d'arbitrage UFOLEP · 2015</span></div>
   <h3>Barème</h3><div class="row">${num_('Zone centrale','safari',0,130)}${num_('Zone médiane','safari',1,130)}</div>
   <h3>Temps</h3><div class="row">${chrono('chronoS')}</div>
-  <h3>Rappel du règlement</h3>${regle(['24 buttes, ou 12 buttes tirées 2 fois ; distances connues','2 flèches comptées : 20 / 15 / 0 (max 40 par butte, 960 au total)','Piquets : vert jusqu\'à 12 ans, bleu 13-14 ans, rouge 15-16 ans, jaune adultes','2 min par volée','Égalité : nombre de 20, puis de 15 (choix par défaut, non précisé dans le règlement)'])}
+  <h3>Rappel du règlement</h3>${regle(REGLES['Safari'].items)}
   <button class="btn" onclick="resetB('Safari')">Revenir au barème du règlement Safari</button></div>
 
   <div class="card"><h3 style="margin-top:0">Compte et synchronisation</h3>
