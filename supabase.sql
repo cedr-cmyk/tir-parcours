@@ -71,8 +71,9 @@ begin
   return json_build_object('ok', true, 'archer', inv.archer_nom);
 end $$;
 
--- L'archer lit SES résultats : seulement sa fiche, ses tirs (sans les scores des autres
--- ni les notes de l'entraîneur) et les parcours concernés. Lecture seule.
+-- L'archer lit SES résultats : sa fiche, ses tirs (sans les scores des autres ni les notes de l'entraîneur),
+-- les parcours concernés (avec distances, puisque déjà tirés) et la liste des parcours de l'entraîneur
+-- pour saisir un nouveau tir (« catalogue », SANS les distances, sauf en Safari où elles sont connues).
 create or replace function public.parcours_mes_resultats()
 returns json language plpgsql stable security definer set search_path = public as $$
 declare res json;
@@ -95,7 +96,15 @@ begin
         from public.parcours_items p
         where p.owner = l.coach and p.kind = 'p'
           and p.key in (select 'p-' || (s.item->>'parcoursId') from public.parcours_items s
-                        where s.owner = l.coach and s.kind = 's' and s.item->'archerIds' ? substr(l.archer_key, 3))) as parcours
+                        where s.owner = l.coach and s.kind = 's' and s.item->'archerIds' ? substr(l.archer_key, 3))) as parcours,
+      (select coalesce(json_agg(
+          case when p.item->>'type' = 'Safari' then p.item
+               else jsonb_set(p.item, '{cibles}', (select coalesce(jsonb_agg(c - 'dist'), '[]'::jsonb) from jsonb_array_elements(coalesce(p.item->'cibles', '[]'::jsonb)) c)) end
+        ), '[]'::json)
+        from public.parcours_items p
+        where p.owner = l.coach and p.kind = 'p'
+          and coalesce((p.item->>'deleted')::boolean, false) = false
+          and coalesce(p.item->>'source', '') <> 'archer') as catalogue
     from public.parcours_liens l
     where l.archer_user = auth.uid()
   ) x;
@@ -106,3 +115,52 @@ revoke all on function public.parcours_utiliser_code(text) from public, anon;
 revoke all on function public.parcours_mes_resultats()     from public, anon;
 grant execute on function public.parcours_utiliser_code(text) to authenticated;
 grant execute on function public.parcours_mes_resultats()     to authenticated;
+
+
+-- =====================================================================
+-- v0.5 : vue archer simplifiée et tirs saisis par les archers
+-- =====================================================================
+-- Comptes « entraîneur » : ils ont l'appli complète. Tous les autres comptes ont la vue archer.
+create table if not exists public.parcours_entraineurs (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table public.parcours_entraineurs enable row level security;
+drop policy if exists "parcours_entraineurs lecture" on public.parcours_entraineurs;
+create policy "parcours_entraineurs lecture" on public.parcours_entraineurs for select using (auth.uid() = user_id);
+-- (aucun ajout possible depuis l'appli : seulement ici, dans le SQL Editor)
+
+-- Tirs saisis par un archer, envoyés à son entraîneur
+create table if not exists public.parcours_envois (
+  id          text primary key,                 -- identifiant du tir
+  coach       uuid not null references auth.users(id) on delete cascade,
+  archer_user uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  archer_key  text not null,
+  payload     jsonb not null,                   -- le tir et le parcours utilisé
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  importe     boolean not null default false
+);
+alter table public.parcours_envois enable row level security;
+drop policy if exists "parcours_envois lecture"            on public.parcours_envois;
+drop policy if exists "parcours_envois envoi archer"       on public.parcours_envois;
+drop policy if exists "parcours_envois correction archer"  on public.parcours_envois;
+drop policy if exists "parcours_envois import entraineur"  on public.parcours_envois;
+drop policy if exists "parcours_envois suppression"        on public.parcours_envois;
+create policy "parcours_envois lecture" on public.parcours_envois
+  for select using (auth.uid() = archer_user or auth.uid() = coach);
+create policy "parcours_envois envoi archer" on public.parcours_envois
+  for insert with check (auth.uid() = archer_user and exists (
+    select 1 from public.parcours_liens l where l.coach = parcours_envois.coach and l.archer_user = auth.uid() and l.archer_key = parcours_envois.archer_key));
+create policy "parcours_envois correction archer" on public.parcours_envois
+  for update using (auth.uid() = archer_user) with check (auth.uid() = archer_user and exists (
+    select 1 from public.parcours_liens l where l.coach = parcours_envois.coach and l.archer_user = auth.uid() and l.archer_key = parcours_envois.archer_key));
+create policy "parcours_envois import entraineur" on public.parcours_envois
+  for update using (auth.uid() = coach) with check (auth.uid() = coach);
+create policy "parcours_envois suppression" on public.parcours_envois
+  for delete using (auth.uid() = coach or auth.uid() = archer_user);
+
+-- >>> À FAIRE UNE FOIS : déclarer votre compte comme entraîneur (remplacez l'e-mail) <<<
+-- insert into public.parcours_entraineurs (user_id)
+--   select id from auth.users where email = 'votre.email@exemple.fr'
+--   on conflict do nothing;

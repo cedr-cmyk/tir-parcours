@@ -114,7 +114,7 @@ input.bad{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 
 </head>
 <body>
 <div class="top"><header>
-  <div class="brand"><span class="logo">🏹</span><div><h1>Tir Parcours</h1><small>v0.4</small></div></div>
+  <div class="brand"><span class="logo">🏹</span><div><h1>Tir Parcours</h1><small>v0.5</small></div></div>
   <div id="sync" class="sync" onclick="USER?sync(true):go('reglages')">Sur cet appareil</div>
 </header>
 <nav id="nav"></nav></div>
@@ -128,7 +128,7 @@ input.bad{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
 const fdate=d=>{try{return new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}catch(e){return d}};
 const num=v=>{if(v===''||v==null)return null;const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?null:n};
 const sum=a=>a.reduce((t,x)=>t+x,0);
@@ -195,7 +195,7 @@ function loadStore(k){let d;try{d=JSON.parse(localStorage.getItem(k))||blank()}c
 S=loadStore(LSU);
 function persist(){try{localStorage.setItem(LSU,JSON.stringify(S))}catch(e){}}
 function useStore(uid){const k=LS+(uid?'-'+uid:'');if(k===LSU)return;LSU=k;S=loadStore(k);if(S.mig<2)migrate();
-  try{MOI=JSON.parse(localStorage.getItem(LSU+'-moi'))}catch(e){MOI=null}MOI_LOADED=false}
+  try{MOI=JSON.parse(localStorage.getItem(LSU+'-moi'))}catch(e){MOI=null}MOI_LOADED=false;try{ROLE=uid?localStorage.getItem(LSU+'-role'):null}catch(e){}}
 function put(kind,o){o.updatedAt=Date.now();S[kind][o.id]=o;S.dirty[kind+'-'+o.id]=1;persist();queueSync()}
 function putSettings(){S.settings.updatedAt=Date.now();S.dirty.settings=1;persist();queueSync()}
 const list=k=>Object.values(S[k]).filter(x=>!x.deleted);
@@ -216,7 +216,7 @@ function migrate(){
 // ---------- Synchronisation Supabase (quand le réseau revient) ----------
 // Table dédiée « parcours_items » : aucune table du Carnet n'est lue ni modifiée.
 const CFG=window.TP_CONFIG||{};
-let SB=null,USER=null,syncBusy=false,syncTimer=null;
+let SB=null,USER=null,ROLE=null,syncBusy=false,syncTimer=null;
 function setSync(st,msg){const n=Object.keys(S.dirty).length;const el=$('#sync');
   const m={local:'Sur cet appareil',login:'Se connecter',ok:'✓ Synchronisé',wait:'⏳ '+n+' en attente',busy:'Synchro…',err:msg||'Synchro impossible'};
   el.className='sync '+(st==='local'||st==='login'?'':st);el.textContent=m[st]||st;el.title=st==='wait'?'Données gardées sur l\'appareil, envoi dès que le réseau revient':''}
@@ -235,13 +235,33 @@ async function push(){const keys=Object.keys(S.dirty);if(!keys.length)return;con
 async function sync(full){if(!SB){setSync('local');return}if(!USER){setSync('login');return}if(syncBusy)return;
   if(navigator.onLine===false){setSync('wait');return}
   syncBusy=true;setSync('busy');
-  try{if(full)await pull();await push();setSync(Object.keys(S.dirty).length?'wait':'ok')}
+  try{if(full)await pull();await push();if(ROLE==='archer')await pushEnvois();if(ROLE==='coach')await pullEnvois();setSync(Object.keys(S.dirty).length||envoisEnAttente()?'wait':'ok')}
   catch(e){console.warn('synchro',e);const m=String(e&&(e.message||e.code)||'');
     if(/JWT|auth|401|403/i.test(m))setSync('err','Reconnectez-vous');else if(/relation|does not exist|42P01/i.test(m))setSync('err','Table absente (supabase.sql)');else setSync('wait')}
   finally{syncBusy=false}}
 function queueSync(){setSync(!SB?'local':!USER?'login':'wait');clearTimeout(syncTimer);syncTimer=setTimeout(()=>sync(false),1500)}
 window.addEventListener('online',()=>sync(true));
 setInterval(()=>{if(Object.keys(S.dirty).length)sync(false)},60000);
+// --- Rôle : seul un compte déclaré dans « parcours_entraineurs » a l'appli complète ; les autres ont la vue archer
+async function detectRole(){if(!SB||!USER){ROLE=null;return}
+  try{const{data,error}=await withTimeout(SB.from('parcours_entraineurs').select('user_id').eq('user_id',USER.id),10000);
+    if(error){if(/relation|does not exist|42P01|PGRST205/i.test(String(error.message||error.code)))ROLE='coach';else throw error}
+    else ROLE=data&&data.length?'coach':'archer';try{localStorage.setItem(LSU+'-role',ROLE)}catch(e){}}
+  catch(e){let c=null;try{c=localStorage.getItem(LSU+'-role')}catch(_){}ROLE=c||'archer'}}
+// --- Tirs saisis par l'archer : envoyés à l'entraîneur (table « parcours_envois »)
+const envoisEnAttente=()=>ROLE==='archer'&&list('s').some(s=>s.source==='archer'&&s.done&&s.envoiVer!==s.updatedAt);
+async function pushEnvois(){for(const s of list('s')){if(s.source!=='archer'||!s.done||s.envoiVer===s.updatedAt)continue;const v=s.updatedAt;
+    const payload={session:JSON.parse(JSON.stringify(s)),parcours:S.p[s.parcoursId]?JSON.parse(JSON.stringify(S.p[s.parcoursId])):null};
+    const{error}=await withTimeout(SB.from('parcours_envois').upsert({id:s.id,coach:s.coach,archer_user:USER.id,archer_key:s.archerKey,payload,updated_at:new Date().toISOString(),importe:false},{onConflict:'id'}),15000);
+    if(error)throw error;const cur=S.s[s.id];if(cur&&cur.updatedAt===v){cur.envoiVer=v;persist()}}}
+async function pullEnvois(){const{data,error}=await withTimeout(SB.from('parcours_envois').select('id,archer_key,payload').eq('coach',USER.id).eq('importe',false),15000);
+  if(error){if(/relation|does not exist|42P01|PGRST205/i.test(String(error.message)))return;throw error}let n=0;
+  for(const row of data||[]){const ps=row.payload&&row.payload.session;if(!ps)continue;const ex=S.s[ps.id];
+    if(!ex||(ps.updatedAt||0)>(ex.envoiVer||0)){const pp=row.payload.parcours;if(pp&&!S.p[pp.id]){pp.source='archer';put('p',pp)}
+      const o=Object.assign({},ps,{source:'archer',envoiVer:ps.updatedAt});delete o.coach;put('s',o);n++}
+    await SB.from('parcours_envois').update({importe:true}).eq('id',row.id)}
+  if(n){toast(n+' tir(s) reçu(s) de vos archers');render()}}
+
 async function login(){const em=$('#lem').value.trim(),pw=$('#lpw').value;if(!em||!pw){toast('E-mail et mot de passe');return}
   if(!SB){toast('Supabase non configuré (config.js)');return}
   const{data:ld,error}=await SB.auth.signInWithPassword({email:em,password:pw});if(!error&&ld&&ld.user){USER=ld.user;useStore(USER.id)}if(error){toast(/invalid/i.test(error.message)?'E-mail ou mot de passe incorrect':'Connexion refusée : '+error.message);return}const code=($('#lcode')&&$('#lcode').value||'').trim().toUpperCase();
@@ -250,12 +270,10 @@ async function login(){const em=$('#lem').value.trim(),pw=$('#lpw').value;if(!em
 // Choisit l'écran d'arrivée : archer relié -> « Mes résultats », première fois -> page d'accueil, sinon l'appli normale
 const ownData=()=>list('p').length+list('a').length+list('s').length>0;
 const roleKey=()=>'tp-role-'+(USER?USER.id:'');
-async function aiguiller(force){if(!USER)return;await sync(true);await loadMoi(true);
-  if(!force&&V.view!=='home'&&V.view!=='login')return;
-  if(MOI&&MOI.length&&!ownData())go('moi');
-  else if(!ownData()&&!(()=>{try{return localStorage.getItem(roleKey())}catch(e){return null}})())go('bienvenue');
-  else go('home')}
-async function logout(){if(!SB)return;await SB.auth.signOut();USER=null;MOI=null;MOI_LOADED=false;useStore(null);setSync('login');go('login')}
+async function aiguiller(force){if(!USER)return;await detectRole();await sync(true);await loadMoi(true);
+  if(!force&&V.view!=='home'&&V.view!=='login'&&V.view!=='bienvenue'){render();return}
+  if(ROLE==='coach')go('home');else go(MOI&&MOI.length?'a-tirs':'bienvenue')}
+async function logout(){if(!SB)return;await SB.auth.signOut();USER=null;ROLE=null;MOI=null;MOI_LOADED=false;useStore(null);setSync('login');go('login')}
 (async()=>{try{if(!CFG.supabaseUrl||!CFG.supabaseAnonKey||!window.supabase){setSync('local');return}
   SB=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true}});
   const{data}=await SB.auth.getSession();USER=data&&data.session?data.session.user:null;if(USER)useStore(USER.id);
@@ -281,19 +299,22 @@ function nbDep(s,aid){return Object.values(s.scores[aid]||{}).filter(e=>e.dep).l
 
 // ---------- Navigation ----------
 let V={view:'home'};
-const TABS=[['home','Accueil'],['new','Tirer'],['parcours','Parcours'],['archers','Archers'],['suivi','Suivi'],['moi','Mes résultats'],['reglages','Réglages']];
+const TABS=[['home','Accueil'],['new','Tirer'],['parcours','Parcours'],['archers','Archers'],['suivi','Suivi'],['reglages','Réglages']];
+const TABS_ARCHER=[['a-tirs','Mes tirs'],['a-tirer','Tirer'],['a-suivi','Mon suivi'],['a-compte','Mon compte']];
+const VUES_ARCHER=['a-tirs','a-tirer','a-suivi','a-compte','tir','bienvenue','login'];
 function go(view,extra){if(view!=='tir')chStop();V=Object.assign({view},extra||{});render();window.scrollTo(0,0)}
 function render(){
-  const tabOf={tir:'new',detail:'home',pedit:'parcours'}[V.view]||V.view;
-  $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tabOf?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
+  if(ROLE==='archer'&&!VUES_ARCHER.includes(V.view))V={view:'a-tirs'};
+  const tabOf=(ROLE==='archer'?{tir:'a-tirer'}:{tir:'new',detail:'home',pedit:'parcours'})[V.view]||V.view;
+  $('#nav').innerHTML=(ROLE==='archer'?TABS_ARCHER:TABS).map(([k,l])=>`<button class="${k===tabOf?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
   if(V.view==='login'||V.view==='bienvenue'){$('#nav').style.display='none';$('#app').innerHTML=V.view==='login'?vLogin():vBienvenue();return}
   $('#nav').style.display='';
-  const f={home:vHome,new:vNew,tir:vTir,detail:vDetail,parcours:vParcours,pedit:vPEdit,archers:vArchers,suivi:vSuivi,moi:vMoi,reglages:vReglages}[V.view]||vHome;
+  const f={home:vHome,new:vNew,tir:vTir,detail:vDetail,parcours:vParcours,pedit:vPEdit,archers:vArchers,suivi:vSuivi,reglages:vReglages,'a-tirs':vATirs,'a-tirer':vATirer,'a-suivi':vASuivi,'a-compte':vACompte}[V.view]||vHome;
   $('#app').innerHTML=f();
   if(V.view==='pedit')refreshChecks();
   if(V.view==='tir')updCh();
   if(V.view==='archers'&&V.aid)loadAcces();
-  if(V.view==='moi'&&!MOI_LOADED)loadMoi();
+  if(V.view.startsWith('a-')&&!MOI_LOADED)loadMoi(true);
 }
 
 // ---------- Page de connexion ----------
@@ -311,8 +332,8 @@ function vLogin(){return `<div class="login"><div class="card" style="max-width:
 function vBienvenue(){return `<div class="card" style="max-width:520px;margin:20px auto;padding:22px"><h2 style="margin-top:0">Bienvenue 👋</h2>
   <h3>Vous êtes archer ?</h3><p class="muted">Saisissez le code donné par votre entraîneur pour voir vos tirs et votre suivi.</p>
   <div class="row"><input id="bcode" placeholder="ex. K7M2QX" style="max-width:200px;text-transform:uppercase" autocomplete="off"><button class="btn p" onclick="utiliserCode('bcode')">Valider le code</button></div>
-  <h3 style="margin-top:22px">Vous êtes entraîneur, ou vous voulez essayer l'appli ?</h3><p class="muted">Vous créez vos propres parcours, archers et tirs. Ils restent dans votre espace.</p>
-  <button class="btn" onclick="try{localStorage.setItem(roleKey(),'coach')}catch(e){};go('home')">Accéder à l'appli</button></div>`}
+  <p class="muted" style="margin-top:18px">Pas encore de code ? Demandez-le à votre entraîneur.</p>
+  <button class="btn" onclick="logout()">Se déconnecter</button></div>`}
 
 // ---------- Accueil ----------
 function vHome(){
@@ -330,7 +351,7 @@ function vHome(){
   return h}
 function itemSession(s){const p=S.p[s.parcoursId]||{nom:'(parcours supprimé)',cibles:[]};
   const noms=s.archerIds.map(id=>(S.a[id]||{}).nom||'?').join(', ');
-  return `<div class="item" onclick="go('${s.done?'detail':'tir'}',{sid:'${s.id}'})"><div class="grow"><b>${esc(p.nom)}</b> ${badge(s.type)}<div class="muted">${fdate(s.date)} · ${esc(noms)}</div></div>${s.done?'':'<span class="badge">en cours · cible '+(s.cur+1)+'</span>'}</div>`}
+  return `<div class="item" onclick="go('${s.done?'detail':'tir'}',{sid:'${s.id}'})"><div class="grow"><b>${esc(p.nom)}</b> ${badge(s.type)}<div class="muted">${fdate(s.date)} · ${esc(noms)}${s.source==='archer'?' · <b>saisi par l\'archer</b>':''}</div></div>${s.done?'':'<span class="badge">en cours · cible '+(s.cur+1)+'</span>'}</div>`}
 
 // ---------- Nouveau tir ----------
 function vNew(){
@@ -367,6 +388,7 @@ function zonesHTML(s,aid,k,f){
   const saf=s.type==='Safari';const t=saf?S.settings.safari:k?S.settings.natureF2:S.settings.natureF1;
   return `<button class="z ${f[k]==='T'?'sel':''}" onclick="setF('${aid}',${k},'T')">${t[0]}<small>${saf?'centrale':'tué'}</small></button><button class="z ${f[k]==='B'?'sel':''}" onclick="setF('${aid}',${k},'B')">${t[1]}<small>${saf?'médiane':'blessé'}</small></button><button class="z m ${f[k]==='M'?'sel':''}" onclick="setF('${aid}',${k},'M')">0<small>${saf?'extérieur / ratée':'ratée'}</small></button>`}
 function estHTML(s,aid,ci,k,e){const reel=distReelle(s,aid,ci,k);const est=k?e.est2:e.est;
+  if(ROLE==='archer')return `<div class="est" style="grid-template-columns:1fr"><div><label>Distance estimée (m)</label><input type="number" inputmode="decimal" step="0.5" value="${est??''}" onchange="setEst('${aid}',${k},'est',this.value)"></div></div>`;
   const ec=(est!=null&&reel!=null)?Math.round((est-reel)*10)/10:null;
   return `<div class="est"><div><label>Distance estimée (m)</label><input type="number" inputmode="decimal" step="0.5" value="${est??''}" onchange="setEst('${aid}',${k},'est',this.value)"></div>
   <div><label>Distance réelle (m)</label><input type="number" inputmode="decimal" step="0.5" value="${reel??''}" placeholder="non connue" onchange="setEst('${aid}',${k},'reel',this.value)"></div>
@@ -376,10 +398,10 @@ function vTir(){const s=S.s[V.sid];if(!s)return vHome();const p=S.p[s.parcoursId
   const VL=vols(p);const N=VL.length;if(s.cur>=N)s.cur=N-1;const ci=s.cur,c=VL[ci];const saf=s.type==='Safari';
   const allDone=i=>s.archerIds.every(a=>cibleDone(s.type,(s.scores[a]||{})[i]));
   const gtxt=c.grp?(p.type==='3D'?'Groupe '+c.grp:GIB[c.grp]):'';const tl=saf?(p.double?'Volée':'Butte'):'Cible';
-  let h=`<div class="row" style="justify-content:space-between"><div><b>${esc(p.nom)}</b> ${badge(s.type)}<div class="muted">${fdate(s.date)}</div></div><button class="btn" onclick="go('detail',{sid:'${s.id}'})">Tableau</button></div>
+  let h=`<div class="row" style="justify-content:space-between"><div><b>${esc(p.nom)}</b> ${badge(s.type)}<div class="muted">${fdate(s.date)}</div></div><button class="btn" onclick="go(ROLE==='archer'?'a-tirs':'detail',{sid:'${s.id}'})">Tableau</button></div>
   <div class="card"><div class="cible-head"><div><div class="muted">${tl}${saf&&p.double?' · butte '+volLab(p,ci):''}</div><div class="cnum">${ci+1} <span class="muted" style="font-size:16px">/ ${N}</span></div></div>
   <div style="text-align:right"><div style="font-size:18px;font-weight:700">${esc(c.animal||'—')}</div>${gtxt?`<div class="muted">${gtxt}</div>`:''}${c.note?`<div class="muted">${esc(c.note)}</div>`:''}</div></div>
-  ${S.settings.chronoOn?`<div class="chrono"><button class="btn" id="chb" onclick="chToggle()">▶ Lancer le chrono</button><span id="cht" class="cht">${chLimit()} s</span><span class="muted">2 flèches en ${chLimit()} s</span></div>`:''}
+  ${S.settings.chronoOn&&ROLE!=='archer'?`<div class="chrono"><button class="btn" id="chb" onclick="chToggle()">▶ Lancer le chrono</button><span id="cht" class="cht">${chLimit()} s</span><span class="muted">2 flèches en ${chLimit()} s</span></div>`:''}
   <div class="jump">${VL.map((x,i)=>`<button class="${i===ci?'cur':allDone(i)?'done':''}" onclick="jump(${i})">${i+1}</button>`).join('')}</div></div>`;
   for(const aid of s.archerIds){const a=S.a[aid]||{nom:'?'};const e=(s.scores[aid]||{})[ci]||{};const f=e.f||[null,null];
     const pts=scoreCible(s.type,e);const pq=sessPiq(s,aid);
@@ -391,7 +413,7 @@ function vTir(){const s=S.s[V.sid];if(!s)return vHome();const p=S.p[s.parcoursId
     }else{
       h+=`<div class="fl">1<sup>re</sup> flèche ${chip(pq[0])}<span class="muted">${esc(pq[0]||'')}</span></div><div class="zones">${zonesHTML(s,aid,0,f)}</div>${estHTML(s,aid,ci,0,e)}
       <div class="fl" style="margin-top:12px">2<sup>e</sup> flèche ${chip(pq[1])}<span class="muted">${esc(pq[1]||'')}</span></div><div class="zones">${zonesHTML(s,aid,1,f)}</div>${estHTML(s,aid,ci,1,e)}`}
-    h+=`<div class="row" style="margin-top:10px"><button class="btn dep ${e.dep?'on':''}" onclick="setDep('${aid}')">⏱ ${e.dep?'Dépassement noté':'Dépassement de temps'}</button></div></div>`}
+    if(ROLE!=='archer')h+=`<div class="row" style="margin-top:10px"><button class="btn dep ${e.dep?'on':''}" onclick="setDep('${aid}')">⏱ ${e.dep?'Dépassement noté':'Dépassement de temps'}</button></div></div>`}
   h+=`<div class="navbar"><button class="btn big" ${ci===0?'disabled':''} onclick="jump(${ci-1})">◀ Préc.</button>
   ${ci<N-1?`<button class="btn p big" onclick="jump(${ci+1})">${saf?'Volée':'Cible'} suivante ▶</button>`:`<button class="btn p big" onclick="finish()">✓ Terminer</button>`}</div>`;
   return h}
@@ -406,18 +428,18 @@ function setEst(aid,k,field,val){const s=curS();const e=cell(s,aid);const n=num(
   put('s',s);render()}
 function finish(){chStop();const s=curS();const p=S.p[s.parcoursId];let manque=0;
   vols(p).forEach((c,i)=>s.archerIds.forEach(a=>{if(!cibleDone(s.type,(s.scores[a]||{})[i]))manque++}));
-  const fin=()=>{s.done=true;put('s',s);toast('Parcours enregistré');go('detail',{sid:s.id})};
+  const fin=()=>{s.done=true;put('s',s);if(ROLE==='archer'){toast('Parcours enregistré, envoi à votre entraîneur');go('a-tirs',{sid:s.id})}else{toast('Parcours enregistré');go('detail',{sid:s.id})}};
   if(manque)ask(`${manque} saisie(s) incomplète(s). Terminer quand même ?`,'Terminer',fin);else fin()}
 
 // ---------- Tableau d'un tir ----------
 function vDetail(){const s=S.s[V.sid];if(!s)return vHome();const p=S.p[s.parcoursId]||{nom:'?',cibles:[]};
   const ar=s.archerIds.map(id=>S.a[id]||{id,nom:'?'}).sort((a,b)=>{const ta=totalArcher(s,a.id),tb=totalArcher(s,b.id);if(tb!==ta)return tb-ta;const da=departage(s,a.id).n,db=departage(s,b.id).n;return(db[0]-da[0])||(db[1]-da[1])});
-  let h=`<h2>${esc(p.nom)} ${badge(s.type)}</h2><div class="muted" style="margin-bottom:10px">${fdate(s.date)}${s.note?' · '+esc(s.note):''}</div>
-  <div class="kpis">${ar.map((a,r)=>{const d=departage(s,a.id);const dp=nbDep(s,a.id);return `<div class="kpi"><b>${totalArcher(s,a.id)}</b><span>${r+1}. ${esc(a.nom)}<br>${d.v[0]} : ${d.n[0]} · ${d.v[1]} : ${d.n[1]}${dp?' · ⏱ '+dp:''}</span></div>`}).join('')}</div>
+  let h=`<h2>${esc(p.nom)} ${badge(s.type)}</h2><div class="muted" style="margin-bottom:10px">${fdate(s.date)}${s.note?' · '+esc(s.note):''}${s.source==='archer'&&!RO?' · saisi par l\'archer':''}</div>
+  <div class="kpis">${ar.map((a,r)=>{const d=departage(s,a.id);const dp=nbDep(s,a.id);return `<div class="kpi"><b>${totalArcher(s,a.id)}</b><span>${RO?esc(a.nom):`${r+1}. ${esc(a.nom)}<br>${d.v[0]} : ${d.n[0]} · ${d.v[1]} : ${d.n[1]}${dp?' · ⏱ '+dp:''}`}</span></div>`}).join('')}</div>
   <div class="card tbl"><table><tr><th>#</th><th>Cible</th>${ar.map(a=>`<th>${esc(a.nom)}<br><span style="font-weight:400">pts · ${s.type==='Safari'?'distance':'estim./réel'}</span></th>`).join('')}</tr>`;
   if(!p.cibles)p.cibles=[];vols(p).forEach((c,i)=>{h+=`<tr><td>${s.type==='Safari'?volLab(p,i):i+1}</td><td>${esc(c.animal||'')}</td>`+ar.map(a=>{const e=(s.scores[a.id]||{})[i]||{};const pt=scoreCible(s.type,e);
     const er=k=>{const est=k?e.est2:e.est;const r=distReelle(s,a.id,i,k);return `${est!=null?est:'–'}/${r!=null?r:'–'}`};
-    return `<td><b style="color:${pt===0?'var(--danger)':'inherit'}">${pt==null?'–':pt}</b>${e.dep?' ⏱':''} <span class="muted">${s.type==='Nature'?er(0)+' · '+er(1):s.type==='Safari'?(distReelle(s,a.id,i,0)??'–'):er(0)} m</span></td>`}).join('')+'</tr>'});
+    return `<td><b style="color:${pt===0?'var(--danger)':'inherit'}">${pt==null?'–':pt}</b>${e.dep&&!RO?' ⏱':''} <span class="muted">${s.type==='Nature'?er(0)+' · '+er(1):s.type==='Safari'?(distReelle(s,a.id,i,0)??'–'):er(0)} m</span></td>`}).join('')+'</tr>'});
   h+=RO?'</table></div>':`</table></div><div class="row"><button class="btn p" onclick="reopen()">✏️ Reprendre / corriger la saisie</button><button class="btn d" onclick="ask('Supprimer ce tir ?','Supprimer',()=>{del('s','${s.id}');go('home')},true)">Supprimer</button></div>`;
   return h}
 function reopen(){const s=curS();s.done=false;put('s',s);go('tir',{sid:s.id})}
@@ -532,7 +554,7 @@ function vSuivi(){const as=list('a').sort((a,b)=>a.nom.localeCompare(b.nom));if(
   <div class="kpi"><b>${pc(n-zero.length,n)}</b><span>cibles touchées</span></div>
   ${saf?'':`<div class="kpi"><b>${ecAbs!=null?ecAbs.toFixed(1)+' m':'–'}</b><span>écart moyen d'estimation</span></div>
   <div class="kpi"><b>${ecSig!=null?(ecSig>0?'+':'')+ecSig.toFixed(1)+' m':'–'}</b><span>${ecSig==null?'tendance':ecSig>0.5?'a tendance à surestimer':ecSig<-0.5?'a tendance à sous-estimer':'estimation équilibrée'}</span></div>`}
-  <div class="kpi"><b>${dep}</b><span>dépassement(s) de temps</span></div></div>`;
+  ${RO?'':`<div class="kpi"><b>${dep}</b><span>dépassement(s) de temps</span></div>`}</div>`;
   h+='<div class="card"><h3 style="margin-top:0">Répartition des impacts</h3>';
   if(type==='3D'){const B=S.settings.bareme3D;const ta=arr.length;B.forEach((v,i)=>{const c=arr.filter(a=>a.z===i).length;h+=bar('Zone '+v,c,ta,c+' ('+pc(c,ta)+')')});const m=arr.filter(a=>a.z===-1).length;h+=bar('Ratées',m,ta,m+' ('+pc(m,ta)+')','r')}
   else if(saf){const t=S.settings.safari;const ta=arr.length;const c=z=>arr.filter(a=>a.z===z).length;
@@ -547,7 +569,7 @@ function vSuivi(){const as=list('a').sort((a,b)=>a.nom.localeCompare(b.nom));if(
   if(!saf)h+=`<div class="card"><h3 style="margin-top:0">Par distance réelle</h3>${keys.length?`<div class="tbl"><table><tr><th>Distance</th><th>Flèches</th><th>Pts / flèche</th><th>${type==='3D'?'Zone vitale (11-10-8)':saf?'Zone centrale':'Zone tué'}</th><th>Écart estim.</th><th>Tendance</th></tr>${keys.map(k=>{const o=parB[k];const sg=o.ne?o.sig/o.ne:null;return `<tr><td>${k}</td><td>${o.n}</td><td><b>${(o.pts/o.n).toFixed(1)}</b></td><td>${pc(o.vit,o.n)}</td><td>${o.ne?(o.ec/o.ne).toFixed(1)+' m':'–'}</td><td>${sg==null?'–':(sg>0?'+':'')+sg.toFixed(1)+' m'}</td></tr>`}).join('')}</table></div>`:'<div class="muted">Renseignez les distances réelles des cibles pour voir cette analyse.</div>'}</div>`;
   h+=`<div class="card"><h3 style="margin-top:0">Cibles à zéro (${zero.length})</h3>${zero.length?`<div class="tbl"><table><tr><th>Date</th><th>Parcours</th><th>Cible</th><th>Réel</th><th>Estimé</th></tr>${zero.slice(0,40).map(r=>{const re=distReelle(r.s,aid,r.i,0);return `<tr><td>${fdate(r.s.date)}</td><td>${esc(r.p.nom)}</td><td>${r.i+1} ${esc(r.c.animal||'')}</td><td>${re??'–'}</td><td>${r.e.est??'–'}</td></tr>`}).join('')}</table></div>`:'<div class="muted">Aucune 👏</div>'}</div>`;
   h+=`<div class="card"><h3 style="margin-top:0">Progression par parcours</h3>`;const mx=Math.max(...ss.map(s=>totalArcher(s,aid)),1);
-  ss.slice(0,15).forEach(s=>{const t=totalArcher(s,aid);const d=departage(s,aid);const nb=(S.p[s.parcoursId].cibles||[]).length;h+=bar(fdate(s.date),t,mx,`${t} pts · ${d.v[0]}:${d.n[0]} ${d.v[1]}:${d.n[1]}`)});
+  ss.slice(0,15).forEach(s=>{const t=totalArcher(s,aid);const d=departage(s,aid);const nb=(S.p[s.parcoursId].cibles||[]).length;h+=bar(fdate(s.date),t,mx,RO?`${t} pts`:`${t} pts · ${d.v[0]}:${d.n[0]} ${d.v[1]}:${d.n[1]}`)});
   return h+'</div>'}
 
 // ---------- Espace archer : côté entraîneur ----------
@@ -578,26 +600,54 @@ try{MOI=JSON.parse(localStorage.getItem(LSU+'-moi'))}catch(e){}
 async function loadMoi(silent){MOI_LOADED=true;if(!SB||!USER)return;
   try{const{data,error}=await withTimeout(SB.rpc('parcours_mes_resultats'),15000);if(error)throw error;MOI=Array.isArray(data)?data:[];try{localStorage.setItem(LSU+'-moi',JSON.stringify(MOI))}catch(e){}}
   catch(e){if(!silent)toast('Résultats non mis à jour (réseau ?)')}
-  if(V.view==='moi')render()}
+  if(V.view.startsWith('a-'))render()}
 async function utiliserCode(id){const el=$('#'+(id||'mcode'));const c=(el?el.value:'').trim().toUpperCase();if(!c){toast('Saisissez le code');return}
-  const{error}=await SB.rpc('parcours_utiliser_code',{p_code:c});if(error){toast(error.message);return}toast('Compte relié à votre fiche');try{localStorage.setItem(roleKey(),'archer')}catch(e){}await loadMoi();go('moi')}
+  const{error}=await SB.rpc('parcours_utiliser_code',{p_code:c});if(error){toast(error.message);return}toast('Compte relié à votre fiche');await loadMoi(true);go('a-tirs')}
 function asData(L){const D=blank();D.settings=Object.assign(blankSettings(),L.settings||{});const aid=L.archer_key.slice(2);
   D.a[aid]=Object.assign({},L.archer||{},{id:aid,nom:(L.archer&&L.archer.nom)||L.archer_nom});
   (L.parcours||[]).forEach(p=>{if(p&&p.id)D.p[p.id]=p});(L.sessions||[]).forEach(s=>{if(s&&s.id)D.s[s.id]=s});return D}
-function vMoi(){let h=`<h2>Mes résultats</h2>`;
-  if(!SB)return h+'<div class="empty">Supabase non configuré.</div>';
-  if(!USER)return h+`<div class="empty">Connectez-vous dans <a href="#" onclick="go('reglages');return false">Réglages</a> avec votre compte.</div>`;
-  const links=MOI||[];
-  h+=`<p class="muted">Les tirs que votre entraîneur a saisis pour vous, en lecture seule. Vos propres essais dans l'appli restent dans les autres onglets.</p>`;
-  if(links.length){const li=Math.min(V.li||0,links.length-1);const L=links[li];const save=S,saveV=Object.assign({},V);S=asData(L);RO=true;
-    try{const aid=L.archer_key.slice(2);
-      if(links.length>1)h+=`<div class="card"><label>Entraîneur / fiche</label><select onchange="go('moi',{li:+this.value})">${links.map((x,i)=>`<option value="${i}" ${i===li?'selected':''}>${esc(x.archer_nom||'Fiche '+(i+1))}</option>`).join('')}</select></div>`;
-      if(V.sid&&S.s[V.sid]){h+=`<button class="btn" onclick="go('moi',{li:${li}})">‹ Retour</button>`+vDetail()}
-      else{const ss=list('s').filter(s=>S.p[s.parcoursId]).sort((a,b)=>a.date<b.date?1:-1);
-        h+='<h3>Mes parcours</h3>'+(ss.length?ss.map(s=>{const p=S.p[s.parcoursId];return `<div class="item" onclick="go('moi',{li:${li},sid:'${s.id}'})"><div class="grow"><b>${esc(p.nom)}</b> ${badge(s.type)}<div class="muted">${fdate(s.date)}${s.done?'':' · en cours'}</div></div><b style="font-size:20px">${totalArcher(s,aid)}</b></div>`}).join(''):'<div class="empty">Aucun tir pour l\'instant.</div>');
-        V.aid=aid;h+=vSuivi().replace(/^<h2>.*?<\/h2>/,'<h3>Mon suivi</h3>')}}
-    finally{S=save;RO=false;V=saveV}}
-  h+=`<div class="card"><h3 style="margin-top:0">${links.length?'Relier une autre fiche':'Relier mon compte'}</h3><p class="muted">Saisissez le code donné par votre entraîneur (une seule fois).</p><div class="row"><input id="mcode" placeholder="ex. K7M2QX" style="max-width:200px;text-transform:uppercase"><button class="btn p" onclick="utiliserCode()">Valider</button><button class="btn" onclick="loadMoi()">Actualiser</button></div></div>`;
+// Données vues par l'archer : tirs saisis par l'entraîneur + ses propres tirs (pas encore importés)
+function curLink(){const L=MOI||[];return L.length?L[Math.min(V.li||0,L.length-1)]:null}
+function archerData(L){const D=asData(L);const aid=L.archer_key.slice(2);
+  for(const s of list('s')){if(s.archerKey!==L.archer_key||D.s[s.id])continue;D.s[s.id]=s;const p=S.p[s.parcoursId];if(p&&!D.p[p.id])D.p[p.id]=p}
+  return{D,aid}}
+function withArcher(fn){const L=curLink();if(!L)return '';const{D,aid}=archerData(L);const save=S,saveV=Object.assign({},V);S=D;RO=true;
+  try{return fn(L,aid)}finally{S=save;RO=false;V=saveV}}
+const choixLien=()=>{const L=MOI||[];if(L.length<2)return '';const li=Math.min(V.li||0,L.length-1);
+  return `<div class="card"><label>Entraîneur / fiche</label><select onchange="go(V.view,{li:+this.value})">${L.map((x,i)=>`<option value="${i}" ${i===li?'selected':''}>${esc(x.archer_nom||'Fiche '+(i+1))}</option>`).join('')}</select></div>`};
+function vATirs(){if(!curLink())return `<h2>Mes tirs</h2><div class="empty">Pas encore relié à un entraîneur.<br><br><button class="btn p" onclick="go('a-compte')">Saisir mon code</button></div>`;
+  const locs={};list('s').filter(x=>x.source==='archer').forEach(x=>locs[x.id]=x);const mine=new Set(Object.keys(locs));
+  const recu=new Set(((curLink()||{}).sessions||[]).map(x=>x&&x.id));
+  return choixLien()+withArcher((L,aid)=>{let h='';
+    if(V.sid&&S.s[V.sid]){const x=S.s[V.sid];h+=`<button class="btn" onclick="go('a-tirs',{li:V.li})">‹ Mes tirs</button>`+vDetail();
+      if(mine.has(x.id)&&!x.done)h+=`<button class="btn p" onclick="go('tir',{sid:'${x.id}'})">Reprendre la saisie</button>`;return h}
+    const ss=list('s').filter(x=>S.p[x.parcoursId]).sort((a,b)=>(b.date+(b.updatedAt||0))>(a.date+(a.updatedAt||0))?1:-1);
+    h+=`<h2>Mes tirs</h2><div class="row" style="margin-bottom:12px"><button class="btn p big grow" onclick="go('a-tirer')">🎯 Nouveau tir</button></div>`;
+    h+=ss.length?ss.map(x=>{const p=S.p[x.parcoursId];const loc=mine.has(x.id);const own=x.source==='archer';
+      const lx=locs[x.id];const st=!x.done?'<span class="badge">en cours · cible '+((x.cur||0)+1)+'</span>':!own?'<span class="badge s">par l\'entraîneur</span>':recu.has(x.id)&&!(lx&&lx.envoiVer!==lx.updatedAt)?'<span class="badge">✓ reçu par l\'entraîneur</span>':lx&&lx.envoiVer===lx.updatedAt?'<span class="badge">✓ envoyé</span>':'<span class="badge n">⏳ à envoyer</span>';
+      return `<div class="item" onclick="go('${!x.done&&loc?'tir':'a-tirs'}',{li:V.li,sid:'${x.id}'})"><div class="grow"><b>${esc(p.nom)}</b> ${badge(x.type)}<div class="muted">${fdate(x.date)}</div></div>${st}<b style="font-size:20px;margin-left:8px">${totalArcher(x,aid)}</b></div>`}).join(''):'<div class="empty">Aucun tir pour l\'instant.</div>';
+    return h})}
+function vASuivi(){if(!curLink())return `<h2>Mon suivi</h2><div class="empty">Pas encore relié à un entraîneur.</div>`;
+  return choixLien()+withArcher((L,aid)=>{V.aid=aid;return vSuivi().replace(/<div class="card row"><div class="grow"><label>Archer<\/label>[\s\S]*?<\/select><\/div>/,'<div class="card row">')})}
+function vATirer(){const L=curLink();if(!L)return `<h2>Tirer</h2><div class="empty">Pas encore relié à un entraîneur.</div>`;
+  const cat=(L.catalogue||[]).filter(p=>p&&p.id&&!p.deleted);const fiche=L.archer||{};
+  if(!cat.length)return `<h2>Nouveau tir</h2>${choixLien()}<div class="empty">Votre entraîneur n'a pas encore créé de parcours.<br>Dès qu'il en aura créé un, vous pourrez le choisir ici.</div>`;
+  return `<h2>Nouveau tir</h2>${choixLien()}<div class="card">
+  <div class="grid2"><div class="f"><label>Parcours</label><select id="ap">${cat.map(p=>`<option value="${p.id}">${esc(p.nom)} — ${typeLab(p.type)}, ${vols(p).length} ${p.type==='Safari'?'volées':'cibles'}</option>`).join('')}</select></div>
+  <div class="f"><label>Date</label><input type="date" id="ad" value="${today()}"></div></div>
+  <div class="muted" style="margin-bottom:10px">Votre piquet : 3D ${esc(piqTxt(piqArcher(fiche,'3D'),'3D'))} · Nature ${esc(piqTxt(piqArcher(fiche,'Nature'),'Nature'))} · Safari ${esc(piqTxt(piqArcher(fiche,'Safari'),'Safari'))}. Les distances réelles apparaissent une fois le tir terminé et reçu par votre entraîneur.</div>
+  <button class="btn p big" style="width:100%" onclick="aDemarrer()">Commencer ▶</button></div>`}
+function aDemarrer(){const L=curLink();if(!L)return;const aid=L.archer_key.slice(2);const pid=$('#ap').value;let p;
+  const src=(L.catalogue||[]).find(x=>x.id===pid);if(!src){toast('Choisissez un parcours');return}
+  p=JSON.parse(JSON.stringify(src));if(!S.p[p.id]||S.p[p.id].deleted)put('p',p);
+  const fiche=Object.assign({},L.archer||{},{id:aid,nom:(L.archer&&L.archer.nom)||L.archer_nom});S.a[aid]=fiche;
+  if(L.settings)['bareme3D','natureF1','natureF2','safari'].forEach(k=>{if(L.settings[k])S.settings[k]=L.settings[k]});
+  const s={id:newId(),parcoursId:p.id,type:p.type,date:$('#ad').value||today(),archerIds:[aid],scores:{[aid]:{}},piq:{[aid]:piqArcher(fiche,p.type)},cur:0,done:false,source:'archer',coach:L.coach,archerKey:L.archer_key};
+  put('s',s);go('tir',{sid:s.id})}
+function vACompte(){const L=MOI||[];let h=`<h2>Mon compte</h2><div class="card"><p>Connecté : <b>${esc(USER&&USER.email||'')}</b></p><div class="row"><button class="btn" onclick="sync(true);loadMoi()">Actualiser</button><button class="btn" onclick="logout()">Se déconnecter</button></div></div>`;
+  h+=L.map(x=>{const f=x.archer||{};return `<div class="card"><h3 style="margin-top:0">Ma fiche : ${esc(f.nom||x.archer_nom||'')}</h3><div class="muted">${esc([ARMES[f.arme],f.cat,AGES_U[f.ageU]].filter(Boolean).join(' · ')||'Catégorie et arme à renseigner par votre entraîneur')}</div>
+    <div style="margin-top:8px">3D : ${chip(piqArcher(f,'3D')[0])}${esc(piqTxt(piqArcher(f,'3D'),'3D'))}<br>Nature : ${esc(piqTxt(piqArcher(f,'Nature'),'Nature'))}<br>Safari : ${esc(piqTxt(piqArcher(f,'Safari'),'Safari'))}</div></div>`}).join('');
+  h+=`<div class="card"><h3 style="margin-top:0">${L.length?'Relier une autre fiche':'Relier mon compte'}</h3><p class="muted">Saisissez le code donné par votre entraîneur.</p><div class="row"><input id="mcode" placeholder="ex. K7M2QX" style="max-width:200px;text-transform:uppercase"><button class="btn p" onclick="utiliserCode()">Valider</button></div></div>`;
   return h}
 
 // ---------- Réglages ----------
@@ -622,7 +672,7 @@ function vReglages(){const st=S.settings;
 function setB(k,i,v){const n=num(v);if(n==null)return;S.settings[k][i]=n;putSettings();toast('Barème mis à jour')}
 function resetB(){const d=blankSettings();Object.assign(S.settings,{bareme3D:d.bareme3D,natureF1:d.natureF1,natureF2:d.natureF2,safari:d.safari});putSettings();render();toast('Barèmes du règlement rétablis')}
 function setC(k,v){const n=parseInt(v);if(!n||n<5)return;S.settings[k]=n;putSettings()}
-function exportJ(){const d=JSON.stringify({app:'parcours-3d-nature',version:'0.4',export:new Date().toISOString(),parcours:S.p,archers:S.a,sessions:S.s,settings:S.settings});
+function exportJ(){const d=JSON.stringify({app:'parcours-3d-nature',version:'0.5',export:new Date().toISOString(),parcours:S.p,archers:S.a,sessions:S.s,settings:S.settings});
   try{navigator.clipboard.writeText(d).then(()=>toast('Données copiées'),()=>{$('#imp').value=d;toast('Copiez le texte affiché')})}catch(e){$('#imp').value=d;toast('Copiez le texte affiché')}}
 function importJ(){let d;try{d=JSON.parse($('#imp').value)}catch(e){toast('Texte illisible');return}let n=0;
   for(const[k,src]of[['p',d.parcours],['a',d.archers],['s',d.sessions]]){for(const o of Object.values(src||{})){const l=S[k][o.id];if(!l||(o.updatedAt||0)>(l.updatedAt||0)){S[k][o.id]=o;S.dirty[k+'-'+o.id]=1;n++}}}

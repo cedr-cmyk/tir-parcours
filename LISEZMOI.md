@@ -20,7 +20,7 @@ Elle fonctionne sans réseau sur le parcours, puis envoie les données dans Supa
 2. Menu **SQL Editor** → **New query**.
 3. Coller tout le contenu de `supabase.sql` → **Run**.
    (Le fichier peut être relancé sans risque, par exemple après une mise à jour.)
-4. Vérifier dans **Table Editor** que les tables `parcours_items`, `parcours_invitations` et `parcours_liens` sont apparues.
+4. Vérifier dans **Table Editor** que les tables `parcours_items`, `parcours_invitations`, `parcours_liens`, `parcours_entraineurs` et `parcours_envois` sont apparues.
    Les tables du Carnet ne sont pas modifiées.
 
 ### 2. Remplir `config.js`
@@ -50,6 +50,19 @@ Elle fonctionne sans réseau sur le parcours, puis envoie les données dans Supa
 2. Dans `sw.js`, changer le numéro de `CACHE` (ex. `tir-parcours-v0.3` → `tir-parcours-v0.4`).
 3. Sur la tablette, ouvrir l'appli avec du réseau : la nouvelle version est prise au 2e lancement.
 
+## Rôles (v0.5) : entraîneur et archers
+- **Entraîneur** : appli complète. Seuls les comptes déclarés dans la table `parcours_entraineurs` l'ont.
+- **Archer** (tous les autres comptes) : vue simplifiée avec 4 onglets : **Mes tirs**, **Tirer**, **Mon suivi**, **Mon compte**.
+  - Il saisit ses propres tirs (sur un parcours de l'entraîneur ou un parcours libre) ; ils sont envoyés automatiquement à l'entraîneur.
+  - Les distances réelles ne lui sont pas montrées pendant le tir, seulement une fois le tir reçu par l'entraîneur (sauf en Safari, distances connues).
+
+**Déclarer votre compte entraîneur (une seule fois)**, dans Supabase > SQL Editor, en remplaçant l'e-mail :
+```sql
+insert into public.parcours_entraineurs (user_id)
+  select id from auth.users where email = 'votre.email@exemple.fr'
+  on conflict do nothing;
+```
+
 ## Espace archer (v0.4)
 Seule la **connexion** est commune avec le Carnet : les archers utilisent leur compte habituel.
 Toutes les données de Tir Parcours restent dans ses propres tables (`parcours_items`, `parcours_invitations`, `parcours_liens`).
@@ -62,9 +75,8 @@ Toutes les données de Tir Parcours restent dans ses propres tables (`parcours_i
 **Côté archer**
 1. Ouvrir l'appli → **Réglages** → **Se connecter** avec son compte.
 2. Onglet **Mes résultats** → saisir le code → **Valider** (une seule fois).
-3. Il voit ses tirs cible par cible et son suivi, en lecture seule.
-   Il ne voit ni les autres archers ni les notes de l'entraîneur.
-4. Les autres onglets restent à sa disposition pour **tester les fonctions** : ce qu'il y crée reste dans son propre espace, sans toucher à vos données.
+3. Il voit ses tirs cible par cible et son suivi. Il ne voit ni les autres archers ni les notes de l'entraîneur.
+4. Ses tirs saisis dans **Tirer** arrivent chez l'entraîneur (mention « saisi par l'archer »).
 
 ## Bon à savoir
 - Ouvrir l'appli une première fois **avec du réseau** sur chaque tablette, pour qu'elle se mette en mémoire.
