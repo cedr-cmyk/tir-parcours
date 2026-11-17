@@ -120,7 +120,7 @@ input.bad{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 
 </head>
 <body>
 <div class="top"><header>
-  <div class="brand"><span class="logo">🏹</span><div><h1>Tir Parcours</h1><small>v0.6</small></div></div>
+  <div class="brand"><span class="logo">🏹</span><div><h1>Tir Parcours</h1><small>v0.6.1</small></div></div>
   <div id="sync" class="sync" onclick="USER?sync(true):go('reglages')">Sur cet appareil</div>
 </header>
 <nav id="nav"></nav></div>
@@ -305,7 +305,8 @@ async function aiguiller(force){if(!USER)return;await detectRole();await sync(tr
   if(ROLE==='coach')go('home');else go(MOI&&MOI.length?'a-tirs':'bienvenue')}
 async function logout(){if(!SB)return;await SB.auth.signOut();USER=null;ROLE=null;MOI=null;MOI_LOADED=false;useStore(null);setSync('login');go('login')}
 (async()=>{try{if(!CFG.supabaseUrl||!CFG.supabaseAnonKey||!window.supabase){setSync('local');return}
-  SB=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true}});
+  // Connexion propre à Tir Parcours : le Carnet (même site github.io, même Supabase) garde sa propre session
+  SB=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'tir-parcours-auth'}});
   const{data}=await SB.auth.getSession();USER=data&&data.session?data.session.user:null;if(USER)useStore(USER.id);
   SB.auth.onAuthStateChange((_e,sess)=>{const was=USER&&USER.id;USER=sess?sess.user:null;if(USER&&USER.id!==was){useStore(USER.id);if(['reglages','moi','archers'].includes(V.view))render()}else if(!USER)setSync('login')});
   if(USER)await aiguiller(false);else{setSync('login');go('login')}}catch(e){setSync('local')}})();
@@ -352,7 +353,7 @@ function render(){
 // ---------- Page de connexion ----------
 function vLogin(){return `<div class="login"><div class="card" style="max-width:440px;margin:30px auto;padding:24px">
   <div style="text-align:center;font-size:44px">🏹</div><h2 style="text-align:center;margin:4px 0 2px">Tir Parcours</h2>
-  <p class="muted" style="text-align:center;margin-top:0">Connectez-vous avec votre compte habituel (le même que pour le Carnet de l'entraîneur).</p>
+  <p class="muted" style="text-align:center;margin-top:0">Connectez-vous avec votre compte habituel. La connexion est indépendante de celle du Carnet : vous pouvez utiliser un compte différent dans chaque appli.</p>
   <form onsubmit="event.preventDefault();login()"><div class="f"><label>E-mail</label><input id="lem" type="email" autocomplete="username" required></div>
   <div class="f"><label>Mot de passe</label><input id="lpw" type="password" autocomplete="current-password" required></div>
   <div class="f"><label>Code d'invitation <span class="muted">(archer, seulement la première fois)</span></label><input id="lcode" placeholder="ex. K7M2QX" style="text-transform:uppercase" autocomplete="off"></div>
