@@ -73,7 +73,8 @@ end $$;
 
 -- L'archer lit SES résultats : sa fiche, ses tirs (sans les scores des autres ni les notes de l'entraîneur),
 -- les parcours concernés (avec distances, puisque déjà tirés) et la liste des parcours de l'entraîneur
--- pour saisir un nouveau tir (« catalogue », SANS les distances, sauf en Safari où elles sont connues).
+-- pour saisir un nouveau tir (« catalogue », SANS les distances, sauf quand elles sont connues :
+-- Safari, Campagne UFOLEP et cibles « connues » de la Campagne FFTA).
 create or replace function public.parcours_mes_resultats()
 returns json language plpgsql stable security definer set search_path = public as $$
 declare res json;
@@ -98,8 +99,13 @@ begin
           and p.key in (select 'p-' || (s.item->>'parcoursId') from public.parcours_items s
                         where s.owner = l.coach and s.kind = 's' and s.item->'archerIds' ? substr(l.archer_key, 3))) as parcours,
       (select coalesce(json_agg(
-          case when p.item->>'type' = 'Safari' then p.item
-               else jsonb_set(p.item, '{cibles}', (select coalesce(jsonb_agg(c - 'dist'), '[]'::jsonb) from jsonb_array_elements(coalesce(p.item->'cibles', '[]'::jsonb)) c)) end
+          case when p.item->>'type' in ('Safari', 'CampagneU') then p.item
+               else jsonb_set(p.item, '{cibles}', (
+                 select coalesce(jsonb_agg(
+                   case when p.item->>'type' = 'Campagne' and not coalesce((e.c->>'inc')::boolean, false) then e.c   -- campagne : distances connues gardées
+                        else e.c - 'dist' end
+                   order by e.n), '[]'::jsonb)
+                 from jsonb_array_elements(coalesce(p.item->'cibles', '[]'::jsonb)) with ordinality as e(c, n))) end
         ), '[]'::json)
         from public.parcours_items p
         where p.owner = l.coach and p.kind = 'p'

@@ -114,11 +114,13 @@ input.bad{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 
 .disc-h{display:flex;align-items:center;gap:10px;justify-content:space-between}.disc-h .badge{font-size:15px;padding:4px 12px}
 .disc h3{margin:14px 0 6px}.regle{margin:0 0 12px;padding-left:20px;font-size:14px;color:var(--muted)}.regle li{margin:2px 0}
 .monpiq{margin:10px 0 6px;padding:8px 10px;background:var(--sunk);border-radius:8px}
+.disc.dc{border-left-color:#8e44ad}.disc.dcu{border-left-color:#16a085}
+.badge.c{background:color-mix(in srgb,#8e44ad 15%,var(--surface));color:#8e44ad}.badge.cu{background:color-mix(in srgb,#16a085 15%,var(--surface));color:#138a72}
 </style>
 </head>
 <body>
 <div class="top"><header>
-  <div class="brand"><span class="logo">🏹</span><div><h1>Tir Parcours</h1><small>v0.5</small></div></div>
+  <div class="brand"><span class="logo">🏹</span><div><h1>Tir Parcours</h1><small>v0.6</small></div></div>
   <div id="sync" class="sync" onclick="USER?sync(true):go('reglages')">Sur cet appareil</div>
 </header>
 <nav id="nav"></nav></div>
@@ -145,17 +147,40 @@ function closeModal(){$('#modal').classList.add('hidden')}
 
 // ---------- Règlements FFTA (version août 2026) ----------
 const PIQUETS=['Rouge','Bleu','Blanc','Rose'];
-const PIQ_COL={Rouge:'#c0352a',Bleu:'#2a5fae',Blanc:'#ffffff',Rose:'#f08fb5',Jaune:'#f1c40f',Vert:'#1d8a3a'};
+const PIQ_COL={Rouge:'#c0352a',Bleu:'#2a5fae',Blanc:'#ffffff',Rose:'#f08fb5',Jaune:'#f1c40f',Vert:'#1d8a3a',Orange:'#e67e22'};
 // UFOLEP Tir Safari (règlement d'arbitrage, 18/10/2015)
 const PIQ_SAF=['Jaune','Rouge','Bleu','Vert'];
 const AGES_U={'-12':'12 ans et moins','13-14':'13-14 ans','15-16':'15-16 ans','Adulte':'Adulte'};
 const AGE_PIQ={'-12':'Vert','13-14':'Bleu','15-16':'Rouge','Adulte':'Jaune'};
 const DSAF={A:{Vert:5,Bleu:10,Rouge:10,Jaune:15},P:{Vert:10,Bleu:15,Rouge:20,Jaune:25},M:{Vert:12,Bleu:20,Rouge:25,Jaune:30},G:{Vert:15,Bleu:25,Rouge:30,Jaune:35}};
 const REPSAF={12:{G:4,M:4,P:2,A:2},24:{G:8,M:8,P:4,A:4}};
-const piqList=type=>type==='Safari'?PIQ_SAF:PIQUETS;
-const TYPES=['3D','Nature','Safari'];
-const typeLab=t=>t==='Safari'?'Safari UFOLEP':t;
-const badge=t=>`<span class="badge ${t==='Nature'?'n':t==='Safari'?'s':''}">${typeLab(t)}</span>`;
+// Tir en campagne FFTA (août 2026) et UFOLEP (2015)
+const PIQ_CAMP=['Rouge','Bleu','Blanc','Orange','Rose'];
+const isCamp=t=>t==='Campagne'||t==='CampagneU';
+const nbF=t=>isCamp(t)?3:2;
+const dbl=t=>t==='Safari'||t==='CampagneU';
+const UFO=t=>t==='Safari'||t==='CampagneU';
+const BLASONS=['20','40','60','80'];
+const ARMES_C={CL:'Arc classique',BB:'Arc nu',CO:'Arc à poulies',AD:'Arc droit'};
+const ARME_C_AUTO={BB:'BB',AD:'AD',TL:'CO',Co:'CO'};
+const armeCamp=a=>(a&&(a.armeC||ARME_C_AUTO[a.arme]))||'';
+function regCampagne(cat,arme){if(!cat||!arme)return null;if(cat==='Promotion')return'Blanc';
+  if(cat==='U11')return arme==='CL'?'Rose':null;
+  if(cat==='U13')return arme==='CO'?'Blanc':'Orange';
+  if(cat==='U15')return(arme==='BB'||arme==='AD')?'Orange':'Blanc';
+  if(cat==='U18')return{CL:'Bleu',BB:'Bleu',CO:'Rouge',AD:'Blanc'}[arme]||null;
+  return{CL:'Rouge',BB:'Bleu',CO:'Rouge',AD:'Blanc'}[arme]||null}
+// Distances FFTA (A.7.4) : inconnues = fourchette, connues = les 3 distances du module de 12
+const RCAMP={inc:{'20':{Rose:[5,10],Blanc:[5,10],Orange:[5,10],Bleu:[5,10],Rouge:[10,15]},'40':{Rose:[5,15],Blanc:[10,15],Orange:[10,15],Bleu:[10,20],Rouge:[15,25]},'60':{Rose:[10,15],Blanc:[15,25],Orange:[15,25],Bleu:[15,30],Rouge:[20,35]},'80':{Rose:[15,20],Blanc:[20,35],Orange:[20,30],Bleu:[30,45],Rouge:[35,55]}},
+  con:{'20':{Rose:[5,5,10],Blanc:[5,10,15],Orange:[5,10,15],Bleu:[5,10,15],Rouge:[10,15,20]},'40':{Rose:[10,10,15],Blanc:[10,15,20],Orange:[10,15,20],Bleu:[15,20,25],Rouge:[20,25,30]},'60':{Rose:[15,15,20],Blanc:[20,25,30],Orange:[20,25,30],Bleu:[30,35,40],Rouge:[35,40,45]},'80':{Rose:[20,20,20],Blanc:[30,35,40],Orange:[30,30,30],Bleu:[40,45,50],Rouge:[50,55,60]}}};
+const CUMCAMP={Rouge:[300,330],Bleu:[220,244],Blanc:[192,212]};
+// Exemple UFOLEP de distances pour 12 cibles (blason, vert, bleu, rouge, jaune)
+const EXCU=[['80',10,20,25,30],['60',6,15,20,25],['40',5,10,10,15],['20',3,5,5,5],['80',12,22,30,35],['60',8,15,25,30],['40',6,10,15,20],['20',4,8,15,15],['80',15,25,35,40],['60',10,20,25,30],['40',8,15,20,20],['20',5,10,10,10]];
+const piqList=type=>UFO(type)?PIQ_SAF:type==='Campagne'?PIQ_CAMP:PIQUETS;
+const TYPES=['3D','Nature','Campagne','Safari','CampagneU'];
+const typeLab=t=>({Safari:'Safari UFOLEP',Campagne:'Campagne FFTA',CampagneU:'Campagne UFOLEP'})[t]||t;
+const badge=t=>`<span class="badge ${({Nature:'n',Safari:'s',Campagne:'c',CampagneU:'cu'})[t]||''}">${typeLab(t)}</span>`;
+const cibleLab=(t,c)=>isCamp(t)?(c.grp?`Blason ${c.grp} cm`:'')+(t==='Campagne'?(c.grp?' · ':'')+(c.inc?'distance inconnue':'distance connue'):''):'';
 const vols=p=>p?(p.double?p.cibles.concat(p.cibles):p.cibles):[];
 const volLab=(p,i)=>{const n=p.cibles.length;return p.double?`${(i%n)+1}${i>=n?' (2e tour)':''}`:String(i+1)};
 const chip=p=>p?`<span class="chip" style="background:${PIQ_COL[p]||'#999'}" title="${esc(p)}"></span>`:'';
@@ -174,10 +199,11 @@ function regPiquets(type,cat,arme){
   if(cat==='U13'||cat==='U15')return['Blanc','Blanc'];
   return['Rouge','Bleu']}
 function piqArcher(a,type){if(!a)return[null,null];
-  if(type==='Safari'){const q=a.pS||AGE_PIQ[a.ageU];return q?[q,q]:[null,null]}
+  if(UFO(type)){const q=a.pS||AGE_PIQ[a.ageU];return q?[q,q]:[null,null]}
+  if(type==='Campagne'){const q=a.pC||regCampagne(a.cat,armeCamp(a));return q?[q,q]:[null,null]}
   const f=type==='3D'?a.p3D:a.pN;
   if(f)return type==='Nature'?f.split('/'):[f,f];return regPiquets(type,a.cat,a.arme)||[null,null]}
-const piqTxt=(pq,type)=>!pq||!pq[0]?(type==='Safari'?'tranche d\'âge UFOLEP ?':'piquet ?'):type==='Nature'?(pq[0]===pq[1]?pq[0]+' (×2)':pq[0]+' puis '+pq[1]):pq[0];
+const piqTxt=(pq,type)=>!pq||!pq[0]?(UFO(type)?'tranche d\'âge UFOLEP ?':type==='Campagne'?'catégorie / arme de campagne ?':'piquet ?'):type==='Nature'?(pq[0]===pq[1]?pq[0]+' (×2)':pq[0]+' puis '+pq[1]):pq[0]==='Orange'?'Orange (sinon blanc)':pq[0];
 // Distances 3D (B.4) et répartition (B.5.1, C.3.5)
 const R3D={Rouge:[10,45],Bleu:[5,30],Blanc:[5,25],Rose:[5,20]};
 const CUM3D={24:{Rouge:[630,670],Bleu:[460,490],Blanc:[350,370]},18:{Rouge:[470,500],Bleu:[345,375],Blanc:[260,280]}};
@@ -190,7 +216,7 @@ const CUMNAT={21:{Rouge:[525,550]}};
 
 // ---------- Données (sauvegarde sur l'appareil = hors ligne) ----------
 const LS='tir-parcours-v1';
-function blankSettings(){return{bareme3D:[11,10,8,5],natureF1:[20,15],natureF2:[15,10],safari:[20,15],chronoOn:true,chrono3D:90,chronoN:45,chronoS:120,updatedAt:0}}
+function blankSettings(){return{bareme3D:[11,10,8,5],natureF1:[20,15],natureF2:[15,10],safari:[20,15],campagne:[6,5,4,3,2,1],campagneU:[5,4,3,2,1],chronoOn:true,chrono3D:90,chronoN:45,chronoS:120,chronoC:180,chronoCU:180,updatedAt:0}}
 function blank(){return{p:{},a:{},s:{},settings:blankSettings(),dirty:{},mig:2}}
 // Chaque compte a ses propres données sur l'appareil (une tablette peut servir à plusieurs personnes)
 let S,LSU=LS;
@@ -286,18 +312,20 @@ async function logout(){if(!SB)return;await SB.auth.signOut();USER=null;ROLE=nul
 if('serviceWorker' in navigator&&location.protocol==='https:'){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 // ---------- Calcul des points ----------
+const barZ=t=>t==='3D'?S.settings.bareme3D:t==='Campagne'?S.settings.campagne:t==='CampagneU'?S.settings.campagneU:null;
 function arrowPts(type,k,z){if(z==null)return null;
-  if(type==='3D')return z<0?0:(S.settings.bareme3D[z]??0);
+  const bz=barZ(type);if(bz)return z<0?0:(bz[z]??0);
   const t=type==='Safari'?S.settings.safari:k?S.settings.natureF2:S.settings.natureF1;return z==='T'?t[0]:z==='B'?t[1]:0}
-const cibleDone=(type,e)=>!!(e&&e.f&&e.f[0]!=null&&e.f[1]!=null);
-function scoreCible(type,e){if(!e||!e.f||(e.f[0]==null&&e.f[1]==null))return null;return(arrowPts(type,0,e.f[0])||0)+(arrowPts(type,1,e.f[1])||0)}
+const KS=t=>Array.from({length:nbF(t)},(_,k)=>k);
+const cibleDone=(type,e)=>!!(e&&e.f&&KS(type).every(k=>e.f[k]!=null));
+function scoreCible(type,e){if(!e||!e.f||KS(type).every(k=>e.f[k]==null))return null;return sum(KS(type).map(k=>arrowPts(type,k,e.f[k])||0))}
 function sessPiq(s,aid){return(s.piq&&s.piq[aid])||piqArcher(S.a[aid],s.type)}
 function distReelle(s,aid,ci,k){const e=((s.scores[aid]||{})[ci])||{};const ov=k?e.reel2:e.reel;if(ov!=null)return ov;
-  const p=S.p[s.parcoursId];const c=vols(p)[ci];if(!c)return null;const q=sessPiq(s,aid)[k];return q?num((c.dist||{})[q]):null}
+  const p=S.p[s.parcoursId];const c=vols(p)[ci];if(!c)return null;const q=sessPiq(s,aid)[k];if(!q)return null;let v=num((c.dist||{})[q]);if(v==null&&q==='Orange')v=num((c.dist||{}).Blanc);return v}
 function totalArcher(s,aid){const p=S.p[s.parcoursId];if(!p)return 0;let t=0;vols(p).forEach((c,i)=>{t+=scoreCible(s.type,(s.scores[aid]||{})[i])||0});return t}
 // Départage : nb de 11 puis de 10 (3D), nb de 20 puis de 15 (Nature)
-function departage(s,aid){const p=S.p[s.parcoursId];const v=s.type==='3D'?[S.settings.bareme3D[0],S.settings.bareme3D[1]]:s.type==='Safari'?S.settings.safari.slice():[S.settings.natureF1[0],S.settings.natureF1[1]];
-  const n=[0,0];if(p)vols(p).forEach((c,i)=>{const e=(s.scores[aid]||{})[i];if(!e||!e.f)return;[0,1].forEach(k=>{const x=arrowPts(s.type,k,e.f[k]);if(x===v[0])n[0]++;else if(x===v[1])n[1]++})});
+function departage(s,aid){const p=S.p[s.parcoursId];const bz=barZ(s.type);const v=bz?[bz[0],bz[1]]:s.type==='Safari'?S.settings.safari.slice():[S.settings.natureF1[0],S.settings.natureF1[1]];
+  const n=[0,0];if(p)vols(p).forEach((c,i)=>{const e=(s.scores[aid]||{})[i];if(!e||!e.f)return;KS(s.type).forEach(k=>{const x=arrowPts(s.type,k,e.f[k]);if(x===v[0])n[0]++;else if(x===v[1])n[1]++})});
   return{v,n}}
 function nbDep(s,aid){return Object.values(s.scores[aid]||{}).filter(e=>e.dep).length}
 
@@ -364,7 +392,7 @@ function vNew(){
   if(!as.length)return `<h2>Nouveau tir</h2><div class="empty">Aucun archer.<br><br><button class="btn p" onclick="go('archers')">Ajouter des archers</button></div>`;
   const p0=S.p[V.np]||ps[0];
   return `<h2>Nouveau tir</h2><div class="card">
-  <div class="grid2"><div class="f"><label>Parcours</label><select id="np" onchange="V.np=this.value;render()">${ps.map(p=>`<option value="${p.id}" ${p.id===p0.id?'selected':''}>${esc(p.nom)} — ${typeLab(p.type)}, ${vols(p).length} ${p.type==='Safari'?'volées':'cibles'}</option>`).join('')}</select></div>
+  <div class="grid2"><div class="f"><label>Parcours</label><select id="np" onchange="V.np=this.value;render()">${ps.map(p=>`<option value="${p.id}" ${p.id===p0.id?'selected':''}>${esc(p.nom)} — ${typeLab(p.type)}, ${vols(p).length} ${dbl(p.type)?'volées':'cibles'}</option>`).join('')}</select></div>
   <div class="f"><label>Date</label><input type="date" id="nd" value="${today()}"></div></div>
   <label>Archers sur le parcours (piquet ${typeLab(p0.type)} d'après le règlement)</label>
   ${as.map(a=>{const pq=piqArcher(a,p0.type);return `<label class="item" style="cursor:pointer;color:var(--ink);font-size:15px"><input type="checkbox" value="${a.id}" class="na" style="width:22px;min-height:22px"> <span class="grow"><b>${esc(a.nom)}</b> <span class="muted">${esc([ARMES[a.arme],p0.type==='Safari'?AGES_U[a.ageU]:a.cat].filter(Boolean).join(' · '))}</span></span>${chip(pq[0])}${pq[1]!==pq[0]?chip(pq[1]):''}<span class="muted">${esc(piqTxt(pq,p0.type))}</span></label>`}).join('')}
@@ -377,7 +405,7 @@ function startSession(){const pid=$('#np').value;const ids=[...document.querySel
 
 // ---------- Chrono ----------
 let CH={t0:null,h:null};
-const chLimit=()=>{const s=S.s[V.sid];return s&&s.type==='Nature'?S.settings.chronoN:s&&s.type==='Safari'?S.settings.chronoS:S.settings.chrono3D};
+const chLimit=()=>{const s=S.s[V.sid];const t=s&&s.type;return t==='Nature'?S.settings.chronoN:t==='Safari'?S.settings.chronoS:t==='Campagne'?S.settings.chronoC:t==='CampagneU'?S.settings.chronoCU:S.settings.chrono3D};
 function chStop(){if(CH.h)clearInterval(CH.h);CH={t0:null,h:null}}
 function chToggle(){if(CH.h){chStop();updCh();return}CH.t0=Date.now();CH.h=setInterval(updCh,250);updCh()}
 function updCh(){const el=$('#cht'),b=$('#chb');if(!el)return;const L=chLimit();
@@ -388,7 +416,7 @@ function updCh(){const el=$('#cht'),b=$('#chb');if(!el)return;const L=chLimit();
 
 // ---------- Saisie sur le terrain ----------
 function zonesHTML(s,aid,k,f){
-  if(s.type==='3D'){return S.settings.bareme3D.map((v,i)=>`<button class="z ${f[k]===i?'sel':''}" onclick="setF('${aid}',${k},${i})">${v}</button>`).join('')+`<button class="z m ${f[k]===-1?'sel':''}" onclick="setF('${aid}',${k},-1)">M<small>ratée</small></button>`}
+  const bz=barZ(s.type);if(bz){return bz.map((v,i)=>`<button class="z ${f[k]===i?'sel':''}" onclick="setF('${aid}',${k},${i})">${v}</button>`).join('')+`<button class="z m ${f[k]===-1?'sel':''}" onclick="setF('${aid}',${k},-1)">M<small>ratée</small></button>`}
   const saf=s.type==='Safari';const t=saf?S.settings.safari:k?S.settings.natureF2:S.settings.natureF1;
   return `<button class="z ${f[k]==='T'?'sel':''}" onclick="setF('${aid}',${k},'T')">${t[0]}<small>${saf?'centrale':'tué'}</small></button><button class="z ${f[k]==='B'?'sel':''}" onclick="setF('${aid}',${k},'B')">${t[1]}<small>${saf?'médiane':'blessé'}</small></button><button class="z m ${f[k]==='M'?'sel':''}" onclick="setF('${aid}',${k},'M')">0<small>${saf?'extérieur / ratée':'ratée'}</small></button>`}
 function estHTML(s,aid,ci,k,e){const reel=distReelle(s,aid,ci,k);const est=k?e.est2:e.est;
@@ -399,32 +427,35 @@ function estHTML(s,aid,ci,k,e){const reel=distReelle(s,aid,ci,k);const est=k?e.e
   <div class="ecart ${ec>0?'plus':ec<0?'moins':''}" title="+ = surestimé, − = sous-estimé">${ec==null?'écart –':(ec>0?'+':'')+ec+' m'}</div></div>`}
 function vTir(){const s=S.s[V.sid];if(!s)return vHome();const p=S.p[s.parcoursId];
   if(!p||!p.cibles.length)return '<div class="empty">Parcours introuvable ou sans cible.</div>';
-  const VL=vols(p);const N=VL.length;if(s.cur>=N)s.cur=N-1;const ci=s.cur,c=VL[ci];const saf=s.type==='Safari';
+  const VL=vols(p);const N=VL.length;if(s.cur>=N)s.cur=N-1;const ci=s.cur,c=VL[ci];const saf=dbl(s.type);const camp=isCamp(s.type);
   const allDone=i=>s.archerIds.every(a=>cibleDone(s.type,(s.scores[a]||{})[i]));
-  const gtxt=c.grp?(p.type==='3D'?'Groupe '+c.grp:GIB[c.grp]):'';const tl=saf?(p.double?'Volée':'Butte'):'Cible';
+  const gtxt=camp?cibleLab(p.type,c):c.grp?(p.type==='3D'?'Groupe '+c.grp:GIB[c.grp]):'';const tl=saf?(p.double?'Volée':'Butte'):'Cible';
   let h=`<div class="row" style="justify-content:space-between"><div><b>${esc(p.nom)}</b> ${badge(s.type)}<div class="muted">${fdate(s.date)}</div></div><button class="btn" onclick="go(ROLE==='archer'?'a-tirs':'detail',{sid:'${s.id}'})">Tableau</button></div>
   <div class="card"><div class="cible-head"><div><div class="muted">${tl}${saf&&p.double?' · butte '+volLab(p,ci):''}</div><div class="cnum">${ci+1} <span class="muted" style="font-size:16px">/ ${N}</span></div></div>
-  <div style="text-align:right"><div style="font-size:18px;font-weight:700">${esc(c.animal||'—')}</div>${gtxt?`<div class="muted">${gtxt}</div>`:''}${c.note?`<div class="muted">${esc(c.note)}</div>`:''}</div></div>
-  ${S.settings.chronoOn&&ROLE!=='archer'?`<div class="chrono"><button class="btn" id="chb" onclick="chToggle()">▶ Lancer le chrono</button><span id="cht" class="cht">${chLimit()} s</span><span class="muted">2 flèches en ${chLimit()} s</span></div>`:''}
+  <div style="text-align:right">${camp?`<div style="font-size:18px;font-weight:700">${esc(gtxt||'—')}</div>`:`<div style="font-size:18px;font-weight:700">${esc(c.animal||'—')}</div>${gtxt?`<div class="muted">${gtxt}</div>`:''}`}${c.note?`<div class="muted">${esc(c.note)}</div>`:''}</div></div>
+  ${S.settings.chronoOn&&ROLE!=='archer'?`<div class="chrono"><button class="btn" id="chb" onclick="chToggle()">▶ Lancer le chrono</button><span id="cht" class="cht">${chLimit()} s</span><span class="muted">${nbF(s.type)} flèches en ${chLimit()} s</span></div>`:''}
   <div class="jump">${VL.map((x,i)=>`<button class="${i===ci?'cur':allDone(i)?'done':''}" onclick="jump(${i})">${i+1}</button>`).join('')}</div></div>`;
-  for(const aid of s.archerIds){const a=S.a[aid]||{nom:'?'};const e=(s.scores[aid]||{})[ci]||{};const f=e.f||[null,null];
+  for(const aid of s.archerIds){const a=S.a[aid]||{nom:'?'};const e=(s.scores[aid]||{})[ci]||{};const f=e.f||KS(s.type).map(()=>null);
     const pts=scoreCible(s.type,e);const pq=sessPiq(s,aid);
     h+=`<div class="card arch"><div class="row" style="justify-content:space-between"><div><b style="font-size:17px">${esc(a.nom)}</b> ${chip(pq[0])}${pq[1]!==pq[0]?chip(pq[1]):''}<span class="muted">${esc(piqTxt(pq,s.type))}</span><div class="muted">Total : <b>${totalArcher(s,aid)}</b></div></div><div class="pts">${pts==null?'–':pts}<div class="muted" style="font-size:11px;font-weight:400">pts cible</div></div></div>`;
-    if(saf){const dk=distReelle(s,aid,ci,0);
+    if(camp){const fl=KS(s.type).map(k=>`<label>Flèche ${k+1}</label><div class="zones">${zonesHTML(s,aid,k,f)}</div>`).join('');
+      if(s.type==='Campagne'&&c.inc)h+=fl+estHTML(s,aid,ci,0,e);
+      else{const dk=distReelle(s,aid,ci,0);h+=`<div class="muted" style="margin:4px 0">Distance connue : <b>${dk!=null?dk+' m':'?'}</b></div>`+fl}
+    }else if(saf){const dk=distReelle(s,aid,ci,0);
       h+=`<div class="muted" style="margin:4px 0">Distance connue : <b>${dk!=null?dk+' m':'?'}</b></div><label>Flèche 1</label><div class="zones">${zonesHTML(s,aid,0,f)}</div><label>Flèche 2</label><div class="zones">${zonesHTML(s,aid,1,f)}</div>`;
     }else if(s.type==='3D'){
       h+=`<label>Flèche 1</label><div class="zones">${zonesHTML(s,aid,0,f)}</div><label>Flèche 2</label><div class="zones">${zonesHTML(s,aid,1,f)}</div>`+estHTML(s,aid,ci,0,e);
     }else{
       h+=`<div class="fl">1<sup>re</sup> flèche ${chip(pq[0])}<span class="muted">${esc(pq[0]||'')}</span></div><div class="zones">${zonesHTML(s,aid,0,f)}</div>${estHTML(s,aid,ci,0,e)}
       <div class="fl" style="margin-top:12px">2<sup>e</sup> flèche ${chip(pq[1])}<span class="muted">${esc(pq[1]||'')}</span></div><div class="zones">${zonesHTML(s,aid,1,f)}</div>${estHTML(s,aid,ci,1,e)}`}
-    if(ROLE!=='archer')h+=`<div class="row" style="margin-top:10px"><button class="btn dep ${e.dep?'on':''}" onclick="setDep('${aid}')">⏱ ${e.dep?'Dépassement noté':'Dépassement de temps'}</button></div></div>`}
+    if(ROLE!=='archer')h+=`<div class="row" style="margin-top:10px"><button class="btn dep ${e.dep?'on':''}" onclick="setDep('${aid}')">⏱ ${e.dep?'Dépassement noté':'Dépassement de temps'}</button></div>`;h+='</div>'}
   h+=`<div class="navbar"><button class="btn big" ${ci===0?'disabled':''} onclick="jump(${ci-1})">◀ Préc.</button>
   ${ci<N-1?`<button class="btn p big" onclick="jump(${ci+1})">${saf?'Volée':'Cible'} suivante ▶</button>`:`<button class="btn p big" onclick="finish()">✓ Terminer</button>`}</div>`;
   return h}
 function curS(){return S.s[V.sid]}
 function cell(s,aid){const sc=s.scores[aid]=s.scores[aid]||{};return sc[s.cur]=sc[s.cur]||{}}
 function jump(i){chStop();const s=curS();s.cur=i;put('s',s);render();window.scrollTo(0,0)}
-function setF(aid,k,v){const s=curS();const e=cell(s,aid);const f=e.f=e.f||[null,null];f[k]=(f[k]===v)?null:v;put('s',s);render()}
+function setF(aid,k,v){const s=curS();const e=cell(s,aid);const f=e.f=e.f||KS(s.type).map(()=>null);f[k]=(f[k]===v)?null:v;put('s',s);render()}
 function setDep(aid){const s=curS();const e=cell(s,aid);if(e.dep)delete e.dep;else e.dep=true;put('s',s);render()}
 function setEst(aid,k,field,val){const s=curS();const e=cell(s,aid);const n=num(val);
   if(field==='reel'){const key=k?'reel2':'reel';delete e[key];const def=distReelle(s,aid,s.cur,k);if(n!=null&&n!==def)e[key]=n}
@@ -440,10 +471,10 @@ function vDetail(){const s=S.s[V.sid];if(!s)return vHome();const p=S.p[s.parcour
   const ar=s.archerIds.map(id=>S.a[id]||{id,nom:'?'}).sort((a,b)=>{const ta=totalArcher(s,a.id),tb=totalArcher(s,b.id);if(tb!==ta)return tb-ta;const da=departage(s,a.id).n,db=departage(s,b.id).n;return(db[0]-da[0])||(db[1]-da[1])});
   let h=`<h2>${esc(p.nom)} ${badge(s.type)}</h2><div class="muted" style="margin-bottom:10px">${fdate(s.date)}${s.note?' · '+esc(s.note):''}${s.source==='archer'&&!RO?' · saisi par l\'archer':''}</div>
   <div class="kpis">${ar.map((a,r)=>{const d=departage(s,a.id);const dp=nbDep(s,a.id);return `<div class="kpi"><b>${totalArcher(s,a.id)}</b><span>${RO?esc(a.nom):`${r+1}. ${esc(a.nom)}<br>${d.v[0]} : ${d.n[0]} · ${d.v[1]} : ${d.n[1]}${dp?' · ⏱ '+dp:''}`}</span></div>`}).join('')}</div>
-  <div class="card tbl"><table><tr><th>#</th><th>Cible</th>${ar.map(a=>`<th>${esc(a.nom)}<br><span style="font-weight:400">pts · ${s.type==='Safari'?'distance':'estim./réel'}</span></th>`).join('')}</tr>`;
-  if(!p.cibles)p.cibles=[];vols(p).forEach((c,i)=>{h+=`<tr><td>${s.type==='Safari'?volLab(p,i):i+1}</td><td>${esc(c.animal||'')}</td>`+ar.map(a=>{const e=(s.scores[a.id]||{})[i]||{};const pt=scoreCible(s.type,e);
+  <div class="card tbl"><table><tr><th>#</th><th>Cible</th>${ar.map(a=>`<th>${esc(a.nom)}<br><span style="font-weight:400">pts · ${UFO(s.type)?'distance':isCamp(s.type)?'estim./réel ou distance':'estim./réel'}</span></th>`).join('')}</tr>`;
+  if(!p.cibles)p.cibles=[];vols(p).forEach((c,i)=>{h+=`<tr><td>${dbl(s.type)?volLab(p,i):i+1}</td><td>${esc(isCamp(s.type)?cibleLab(s.type,c):(c.animal||''))}</td>`+ar.map(a=>{const e=(s.scores[a.id]||{})[i]||{};const pt=scoreCible(s.type,e);
     const er=k=>{const est=k?e.est2:e.est;const r=distReelle(s,a.id,i,k);return `${est!=null?est:'–'}/${r!=null?r:'–'}`};
-    return `<td><b style="color:${pt===0?'var(--danger)':'inherit'}">${pt==null?'–':pt}</b>${e.dep&&!RO?' ⏱':''} <span class="muted">${s.type==='Nature'?er(0)+' · '+er(1):s.type==='Safari'?(distReelle(s,a.id,i,0)??'–'):er(0)} m</span></td>`}).join('')+'</tr>'});
+    return `<td><b style="color:${pt===0?'var(--danger)':'inherit'}">${pt==null?'–':pt}</b>${e.dep&&!RO?' ⏱':''} <span class="muted">${s.type==='Nature'?er(0)+' · '+er(1):UFO(s.type)||(s.type==='Campagne'&&!c.inc)?(distReelle(s,a.id,i,0)??'–'):er(0)} m</span></td>`}).join('')+'</tr>'});
   h+=RO?'</table></div>':`</table></div><div class="row"><button class="btn p" onclick="reopen()">✏️ Reprendre / corriger la saisie</button><button class="btn d" onclick="ask('Supprimer ce tir ?','Supprimer',()=>{del('s','${s.id}');go('home')},true)">Supprimer</button></div>`;
   return h}
 function reopen(){const s=curS();s.done=false;put('s',s);go('tir',{sid:s.id})}
@@ -452,17 +483,28 @@ function reopen(){const s=curS();s.done=false;put('s',s);go('tir',{sid:s.id})}
 function vParcours(){const ps=list('p').sort((a,b)=>a.nom.localeCompare(b.nom));
   return `<h2>Parcours</h2><div class="card"><h3 style="margin-top:0">Créer un parcours</h3>
   <div class="grid2"><div class="f"><label>Nom</label><input id="pn" placeholder="ex. Bois de Smarves – automne"></div><div class="f"><label>Lieu</label><input id="pl"></div>
-  <div class="f"><label>Type</label><select id="pt" onchange="$('#pc').value={'3D':24,Nature:21,Safari:12}[this.value];$('#pdw').style.display=this.value==='Safari'?'':'none'">${TYPES.map(t=>`<option value="${t}">${typeLab(t)}</option>`).join('')}</select></div><div class="f"><label>Nombre de cibles / buttes</label><input id="pc" type="number" value="24" min="1" max="60"></div></div>
+  <div class="f"><label>Type</label><select id="pt" onchange="$('#pc').value={'3D':24,Nature:21,Safari:12,Campagne:24,CampagneU:12}[this.value];$('#pdw').style.display=dbl(this.value)?'':'none'">${TYPES.map(t=>`<option value="${t}">${typeLab(t)}</option>`).join('')}</select></div><div class="f"><label>Nombre de cibles / buttes</label><input id="pc" type="number" value="24" min="1" max="60"></div></div>
   <label id="pdw" class="row" style="display:none;color:var(--ink);font-size:15px;margin-bottom:10px"><input type="checkbox" id="pd" checked style="width:22px;min-height:22px"> Parcours de 12 buttes tiré 2 fois (24 volées)</label>
-  <div class="muted" style="margin-bottom:10px">Règlements : 24 cibles en 3D (18 en équipe / double mixte), 21 en Nature, Safari UFOLEP 24 buttes ou 12 buttes tirées 2 fois.</div>
+  <div class="muted" style="margin-bottom:10px">Règlements : 24 cibles en 3D (18 en équipe / double mixte), 21 en Nature, Campagne FFTA 12 à 24 cibles (12 inconnues + 12 connues en compétition), Safari et Campagne UFOLEP 24 buttes ou 12 tirées 2 fois.</div>
   <button class="btn p" onclick="newParcours()">Créer et remplir les cibles</button></div>
-  ${ps.length?ps.map(p=>{const ck=parcoursChecks(p);return `<div class="item" onclick="go('pedit',{pid:'${p.id}'})"><div class="grow"><b>${esc(p.nom)}</b> ${badge(p.type)}<div class="muted">${esc(p.lieu||'')} · ${p.cibles.length} ${p.type==='Safari'?'buttes'+(p.double?' × 2':''):'cibles'}</div></div>${ck.nb?`<span class="badge n">⚠ ${ck.nb}</span>`:''}<span class="muted">Modifier ›</span></div>`}).join(''):'<div class="empty">Aucun parcours.</div>'}`}
+  ${ps.length?ps.map(p=>{const ck=parcoursChecks(p);return `<div class="item" onclick="go('pedit',{pid:'${p.id}'})"><div class="grow"><b>${esc(p.nom)}</b> ${badge(p.type)}<div class="muted">${esc(p.lieu||'')} · ${p.cibles.length} ${dbl(p.type)?'buttes'+(p.double?' × 2':''):'cibles'}</div></div>${ck.nb?`<span class="badge n">⚠ ${ck.nb}</span>`:''}<span class="muted">Modifier ›</span></div>`}).join(''):'<div class="empty">Aucun parcours.</div>'}`}
 function newParcours(){const nom=$('#pn').value.trim();if(!nom){toast('Donnez un nom au parcours');return}
   const n=Math.max(1,Math.min(60,parseInt($('#pc').value)||24));
-  const p={id:newId(),nom,lieu:$('#pl').value.trim(),type:$('#pt').value,double:$('#pt').value==='Safari'&&$('#pd').checked,cibles:Array.from({length:n},()=>({animal:'',grp:'',dist:{},note:''}))};
+  const ty=$('#pt').value;const p={id:newId(),nom,lieu:$('#pl').value.trim(),type:ty,double:dbl(ty)&&$('#pd').checked,cibles:Array.from({length:n},(_,i)=>prepCible(ty,i,n))};
   put('p',p);go('pedit',{pid:p.id})}
+// Pré-remplissage des cibles de campagne : module de 12 (80-60-40-20 ×3) ; FFTA 24 = 12 inconnues puis 12 connues ; UFOLEP = exemple du règlement
+function prepCible(ty,i,n){const c={animal:'',grp:'',dist:{},note:''};
+  if(ty==='Campagne'){c.grp=EXCU[i%12][0];c.inc=n>=24?i<n/2:true}
+  if(ty==='CampagneU'){const x=EXCU[i%12];c.grp=x[0];c.dist={Vert:x[1],Bleu:x[2],Rouge:x[3],Jaune:x[4]}}
+  return c}
 function rangeFor(p,c,q){if(p.type==='3D')return R3D[q];return c.grp?RNAT[q][c.grp]:[5,999]}
 function cibleChecks(p,c){const w={};const d=q=>num((c.dist||{})[q]);
+  if(p.type==='CampagneU')return w;
+  if(p.type==='Campagne'){if(!c.grp)return w;const T=c.inc?RCAMP.inc[c.grp]:RCAMP.con[c.grp];
+    for(const q of PIQ_CAMP){const v=d(q);if(v==null)continue;const t=T[q];
+      if(c.inc){if(v<t[0]||v>t[1])w[q]=`inconnue ${c.grp} cm : ${t[0]}–${t[1]} m`}
+      else if(!t.some(x=>Math.abs(v-x)<=2))w[q]=`connue ${c.grp} cm : ${[...new Set(t)].join(', ')} m (±2 m)`}
+    return w}
   if(p.type==='Safari'){if(c.grp)for(const q of PIQ_SAF){const v=d(q),att=DSAF[c.grp][q];if(v!=null&&v!==att)w[q]=`distance réglementaire ${att} m`}return w}
   for(const q of PIQUETS){const v=d(q);if(v==null)continue;const r=rangeFor(p,c,q);
     if(v<r[0]||v>r[1])w[q]=r[1]===999?`minimum ${r[0]} m`:`hors fourchette ${q.toLowerCase()} : ${r[0]}–${r[1]} m`}
@@ -470,17 +512,26 @@ function cibleChecks(p,c){const w={};const d=q=>num((c.dist||{})[q]);
   else{const seq=PIQUETS.map(d);for(let i=1;i<4;i++){if(seq[i]!=null){const prev=seq.slice(0,i).reverse().find(x=>x!=null);if(prev!=null&&seq[i]>prev)w[PIQUETS[i]]=(w[PIQUETS[i]]?w[PIQUETS[i]]+' ; ':'')+'doit être plus près que le piquet précédent'}}}
   return w}
 function parcoursChecks(p){const N=p.cibles.length;let nb=0;const per=p.cibles.map(c=>{const w=cibleChecks(p,c);nb+=Object.keys(w).length;return w});
+  if(isCamp(p.type)){const repL=[];const sets=p.type==='Campagne'?[['Inconnues',p.cibles.filter(c=>c.inc)],['Connues',p.cibles.filter(c=>!c.inc)]]:[['Buttes',p.cibles]];
+    if(p.type==='Campagne'&&(N<12||N>24||N%4)){nb++;repL.push({label:'12 à 24 cibles, multiple de 4',n:N,att:'',ok:false})}
+    for(const[lab,L]of sets){if(!L.length)continue;const att=L.length%4===0?L.length/4:null;
+      for(const b of BLASONS){const n=L.filter(c=>c.grp===b).length;const ok=att==null||n===att;if(!ok)nb++;repL.push({label:`${lab} ${b} cm`,n,att:att??'?',ok})}}
+    const cumL=[];if(p.type==='Campagne'){const inc=p.cibles.filter(c=>c.inc);
+      for(const q of PIQ_CAMP){const vals=inc.map(c=>num((c.dist||{})[q])).filter(v=>v!=null);if(!vals.length)continue;const tot=sum(vals);const r=inc.length===12?CUMCAMP[q]:null;
+        const complet=vals.length===inc.length;const ok=!r||!complet||(tot>=r[0]&&tot<=r[1]);if(!ok)nb++;cumL.push({q,tot,n:vals.length,r,complet,ok,of:inc.length,lab:'inconnues'})}}
+    return{per,rep:true,repL,cumL,nb,N}}
   const rep=p.type==='3D'?REP3D[N]:p.type==='Safari'?REPSAF[N]:REPNAT[N];const cum=p.type==='3D'?CUM3D[N]:p.type==='Safari'?null:CUMNAT[N];
   const counts={};p.cibles.forEach(c=>{if(c.grp)counts[c.grp]=(counts[c.grp]||0)+1});
   const repL=[];if(rep)for(const g of Object.keys(rep)){const ok=(counts[g]||0)===rep[g];if(!ok)nb++;repL.push({g,n:counts[g]||0,att:rep[g],ok})}
   const cumL=[];for(const q of piqList(p.type)){const vals=p.cibles.map(c=>num((c.dist||{})[q])).filter(v=>v!=null);if(!vals.length)continue;const tot=sum(vals);const r=cum&&cum[q];
     const complet=vals.length===N;const ok=!r||!complet||(tot>=r[0]&&tot<=r[1]);if(!ok)nb++;cumL.push({q,tot,n:vals.length,r,complet,ok})}
   return{per,rep,repL,cumL,nb,N}}
-function ctrlHTML(p){const ck=parcoursChecks(p);const lab=g=>p.type==='3D'?'Groupe '+g:GIB[g];
-  let h=`<h3 style="margin-top:0">Contrôle règlement ${p.type==='Safari'?'UFOLEP':'FFTA'}</h3>`;
-  if(ck.rep){h+=`<div class="muted" style="margin-bottom:4px">Répartition des cibles (${ck.N} cibles) :</div><div class="chips">${ck.repL.map(r=>`<span class="ck ${r.ok?'ok':'ko'}">${lab(r.g)} : ${r.n} / ${r.att}</span>`).join('')}</div>`}
+function ctrlHTML(p){const ck=parcoursChecks(p);const lab=r=>r.label||(p.type==='3D'?'Groupe '+r.g:GIB[r.g]);
+  let h=`<h3 style="margin-top:0">Contrôle règlement ${UFO(p.type)?'UFOLEP':'FFTA'}</h3>`;
+  if(ck.rep){h+=`<div class="muted" style="margin-bottom:4px">Répartition des ${isCamp(p.type)?'blasons':'cibles'} (${ck.N} cibles) :</div><div class="chips">${ck.repL.map(r=>`<span class="ck ${r.ok?'ok':'ko'}">${lab(r)} : ${r.n}${r.att!==''?' / '+r.att:''}</span>`).join('')}</div>`}
   else h+=`<div class="muted">Pas de répartition de référence pour ${ck.N} cibles (référence : ${p.type==='3D'?'24 ou 18':p.type==='Safari'?'12 ou 24':'21'} cibles).</div>`;
-  h+=`<div class="muted" style="margin:10px 0 4px">Cumul des distances :</div>`+(ck.cumL.length?`<div class="chips">${ck.cumL.map(c=>`<span class="ck ${c.ok?(c.r&&c.complet?'ok':''):'ko'}">${chip(c.q)}${c.q} : ${c.tot} m${c.r?` (attendu ${c.r[0]}–${c.r[1]})`:''}${c.complet?'':` · ${c.n}/${ck.N} cibles`}</span>`).join('')}</div>`:'<div class="muted">Aucune distance saisie.</div>');
+  if(p.type!=='CampagneU')h+=`<div class="muted" style="margin:10px 0 4px">Cumul des distances${p.type==='Campagne'?' des cibles inconnues':''} :</div>`+(ck.cumL.length?`<div class="chips">${ck.cumL.map(c=>`<span class="ck ${c.ok?(c.r&&c.complet?'ok':''):'ko'}">${chip(c.q)}${c.q} : ${c.tot} m${c.r?` (attendu ${c.r[0]}–${c.r[1]})`:''}${c.complet?'':` · ${c.n}/${c.of||ck.N} cibles`}</span>`).join('')}</div>`:'<div class="muted">Aucune distance saisie.</div>');
+  else h+=`<div class="muted" style="margin-top:8px">Le règlement UFOLEP ne donne qu'un exemple de distances (la proportionnalité blason / distance doit être respectée).</div>`;
   const lignes=ck.per.map((w,i)=>Object.entries(w).map(([q,m])=>`<li>Cible ${i+1} – ${q} : ${esc(m)}</li>`).join('')).join('');
   h+=lignes?`<ul class="warnlist">${lignes}</ul>`:'';
   h+=`<div style="margin-top:8px;font-weight:700;color:${ck.nb?'var(--danger)':'var(--ok)'}">${ck.nb?'⚠ '+ck.nb+' point(s) à revoir':'✓ Conforme pour ce qui est saisi'}</div>`;
@@ -489,50 +540,58 @@ function refreshChecks(){const p=S.p[V.pid];if(!p)return;const el=$('#ctrl');if(
   p.cibles.forEach((c,i)=>{const w=cibleChecks(p,c);piqList(p.type).forEach(q=>{const inp=document.getElementById(`d-${i}-${q}`);if(!inp)return;inp.classList.toggle('bad',!!w[q]);inp.title=w[q]||''})})}
 function vPEdit(){const p=S.p[V.pid];if(!p)return vParcours();
   const gOpts=c=>p.type==='3D'?['','1','2','3','4'].map(g=>`<option value="${g}" ${String(c.grp||'')===g?'selected':''}>${g?'Groupe '+g:'—'}</option>`).join(''):[''].concat(Object.keys(GIB)).map(g=>`<option value="${g}" ${(c.grp||'')===g?'selected':''}>${g?GIB[g]:'—'}</option>`).join('');
-  let h=`<div class="row" style="justify-content:space-between"><h2>${esc(p.nom)}</h2><button class="btn" onclick="go('parcours')">‹ Retour</button></div>
+  let h='';h+=`<div class="row" style="justify-content:space-between"><h2>${esc(p.nom)}</h2><button class="btn" onclick="go('parcours')">‹ Retour</button></div>
   <div class="card"><div class="grid2"><div class="f"><label>Nom</label><input value="${esc(p.nom)}" onchange="pSet('nom',this.value)"></div><div class="f"><label>Lieu</label><input value="${esc(p.lieu)}" onchange="pSet('lieu',this.value)"></div>
   <div class="f"><label>Type</label><select onchange="pSet('type',this.value)">${TYPES.map(t=>`<option value="${t}" ${p.type===t?'selected':''}>${typeLab(t)}</option>`).join('')}</select></div>
-  ${p.type==='Safari'?`<div class="f"><label>&nbsp;</label><label class="row" style="color:var(--ink);font-size:15px"><input type="checkbox" style="width:22px;min-height:22px" ${p.double?'checked':''} onchange="pSet('double',this.checked)"> Tiré 2 fois (${p.cibles.length*2} volées)</label></div>`:''}</div>
-  <div class="muted">${p.type==='Safari'?'Distances connues : choisissez le type de gibier, les distances des 4 piquets se remplissent d\'après le règlement UFOLEP (vert ≤ 12 ans, bleu 13-14, rouge 15-16, jaune adultes). Petits animaux : 2 blasons par butte.':p.type==='3D'?'Groupe de la cible : calculé avec la surface de la zone 8 × le diamètre de la zone 10 (groupe 1 ≥ 9000, 2 : 5000–8999, 3 : 2000–4999, 4 : 300–1999).':'Type de gibier selon la zone « tué » du blason (grands Ø 300, moyens Ø 225, petits Ø 150, petits animaux Ø 75 mm).'} Les distances hors règlement s'affichent en rouge.</div></div>
-  <div class="card" id="ctrl"></div>
-  <div class="card tbl"><table><tr><th>#</th><th>${p.type==='3D'?'Animal 3D':'Blason / animal'}</th><th>${p.type==='3D'?'Groupe':'Gibier'}</th>${piqList(p.type).map(q=>`<th>${chip(q)}${q} (m)</th>`).join('')}<th>Note</th><th></th></tr>`;
-  p.cibles.forEach((c,i)=>{h+=`<tr><td>${i+1}</td><td><input value="${esc(c.animal)}" onchange="cSet(${i},'animal',this.value)" placeholder="ex. sanglier"></td><td><select style="min-width:120px" onchange="cGrp(${i},this.value)">${gOpts(c)}</select></td>`+
+  ${dbl(p.type)?`<div class="f"><label>&nbsp;</label><label class="row" style="color:var(--ink);font-size:15px"><input type="checkbox" style="width:22px;min-height:22px" ${p.double?'checked':''} onchange="pSet('double',this.checked)"> Tiré 2 fois (${p.cibles.length*2} volées)</label></div>`:''}</div>
+  <div class="muted">${p.type==='Campagne'?'Pour chaque cible : la taille du blason et le type de distance. Inconnues : l\'archer estime la distance ; connues : la distance est affichée au pas de tir. Module de 12 cibles = 3 blasons de 20, 40, 60 et 80 cm. Piquet orange : s\'il est vide, le blanc est utilisé.':p.type==='CampagneU'?'Distances connues. Les cibles ont été pré-remplies avec l\'exemple du règlement UFOLEP (modifiable). Vert ≤ 12 ans, bleu 13-14, rouge 15-16, jaune adultes.':p.type==='Safari'?'Distances connues : choisissez le type de gibier, les distances des 4 piquets se remplissent d\'après le règlement UFOLEP (vert ≤ 12 ans, bleu 13-14, rouge 15-16, jaune adultes). Petits animaux : 2 blasons par butte.':p.type==='3D'?'Groupe de la cible : calculé avec la surface de la zone 8 × le diamètre de la zone 10 (groupe 1 ≥ 9000, 2 : 5000–8999, 3 : 2000–4999, 4 : 300–1999).':'Type de gibier selon la zone « tué » du blason (grands Ø 300, moyens Ø 225, petits Ø 150, petits animaux Ø 75 mm).'} Les distances hors règlement s'affichent en rouge.</div></div>
+  <div class="card" id="ctrl"></div>`;
+  const camp=isCamp(p.type);
+  const bOpts=c=>[''].concat(BLASONS).map(b=>`<option value="${b}" ${(c.grp||'')===b?'selected':''}>${b?b+' cm':'—'}</option>`).join('');
+  h+=`<div class="card tbl"><table><tr><th>#</th>${camp?`<th>Blason</th>${p.type==='Campagne'?'<th>Distance</th>':''}`:`<th>${p.type==='3D'?'Animal 3D':'Blason / animal'}</th><th>${p.type==='3D'?'Groupe':'Gibier'}</th>`}${piqList(p.type).map(q=>`<th>${chip(q)}${q} (m)</th>`).join('')}<th>Note</th><th></th></tr>`;
+  p.cibles.forEach((c,i)=>{h+=`<tr><td>${i+1}</td>`+(camp?`<td><select style="min-width:90px" onchange="cGrp(${i},this.value)">${bOpts(c)}</select></td>${p.type==='Campagne'?`<td><select style="min-width:110px" onchange="cInc(${i},this.value==='1')"><option value="1" ${c.inc?'selected':''}>Inconnue</option><option value="0" ${c.inc?'':'selected'}>Connue</option></select></td>`:''}`:`<td><input value="${esc(c.animal)}" onchange="cSet(${i},'animal',this.value)" placeholder="ex. sanglier"></td><td><select style="min-width:120px" onchange="cGrp(${i},this.value)">${gOpts(c)}</select></td>`)+
     piqList(p.type).map(q=>`<td><input id="d-${i}-${q}" type="number" inputmode="decimal" step="0.5" style="width:72px" value="${esc((c.dist||{})[q]??'')}" onchange="cDist(${i},'${q}',this.value)"></td>`).join('')+
     `<td><input value="${esc(c.note)}" onchange="cSet(${i},'note',this.value)" placeholder="montée, sous-bois…"></td><td><button class="btn d" style="min-height:36px;padding:4px 10px" onclick="cDel(${i})">✕</button></td></tr>`});
-  h+=`</table><div class="row" style="margin-top:10px"><button class="btn" onclick="cAdd()">+ Ajouter une cible</button></div></div>
+  h+=`</table><div class="row" style="margin-top:10px"><button class="btn" onclick="cAdd()">+ Ajouter une cible</button>${p.type==='CampagneU'?'<button class="btn" onclick="exempleCU()">Remplir avec l\'exemple UFOLEP</button>':''}</div></div>
   <button class="btn d" onclick="ask('Supprimer ce parcours ? Les tirs déjà faits restent mais perdront leurs cibles.','Supprimer',()=>{del('p','${p.id}');go('parcours')},true)">Supprimer le parcours</button>`;
   return h}
-function pSet(k,v){const p=S.p[V.pid];p[k]=v;if(k==='type'){p.cibles.forEach(c=>{c.grp='';c.dist={}});p.double=false}put('p',p);if(k==='type'||k==='double')render()}
+function pSet(k,v){const p=S.p[V.pid];p[k]=v;if(k==='type'){const n=p.cibles.length;p.cibles=p.cibles.map((c,i)=>Object.assign(prepCible(v,i,n),{note:c.note||''}));p.double=false}put('p',p);if(k==='type'||k==='double')render()}
 function cGrp(i,g){const p=S.p[V.pid];const c=p.cibles[i];c.grp=g;if(p.type==='Safari'&&g){c.dist=Object.assign({},DSAF[g]);put('p',p);render();return}put('p',p);refreshChecks()}
+function cInc(i,v){const p=S.p[V.pid];p.cibles[i].inc=v;put('p',p);render()}
+function exempleCU(){ask('Remplacer les blasons et distances par l\'exemple du règlement UFOLEP ?','Remplir',()=>{const p=S.p[V.pid];const n=p.cibles.length;p.cibles=p.cibles.map((c,i)=>Object.assign(prepCible('CampagneU',i,n),{note:c.note||''}));put('p',p);render()})}
 function cSet(i,k,v){const p=S.p[V.pid];p.cibles[i][k]=v;put('p',p)}
 function cDist(i,q,v){const p=S.p[V.pid];const c=p.cibles[i];c.dist=c.dist||{};const n=num(v);if(n==null)delete c.dist[q];else c.dist[q]=n;put('p',p);refreshChecks()}
-function cAdd(){const p=S.p[V.pid];p.cibles.push({animal:'',grp:'',dist:{},note:''});put('p',p);render()}
+function cAdd(){const p=S.p[V.pid];p.cibles.push(prepCible(p.type,p.cibles.length,p.cibles.length+1));put('p',p);render()}
 function cDel(i){ask(`Supprimer la cible ${i+1} ?`,'Supprimer',()=>{const p=S.p[V.pid];p.cibles.splice(i,1);put('p',p);render()},true)}
 
 // ---------- Archers ----------
 function vArchers(){const as=list('a').sort((a,b)=>a.nom.localeCompare(b.nom));const ed=V.aid?S.a[V.aid]:null;
-  const o=ed||{nom:'',club:'',arme:'',cat:'',p3D:'',pN:'',ageU:'',pS:''};
+  const o=ed||{nom:'',club:'',arme:'',cat:'',p3D:'',pN:'',ageU:'',pS:'',armeC:'',pC:''};const rC=regCampagne(o.cat,armeCamp(o));
   const r3=regPiquets('3D',o.cat,o.arme),rN=regPiquets('Nature',o.cat,o.arme);
   return `<h2>Archers</h2><div class="card"><h3 style="margin-top:0">${ed?'Modifier '+esc(ed.nom):'Ajouter un archer'}</h3>
   <div class="grid2"><div class="f"><label>Nom</label><input id="an" value="${esc(o.nom)}"></div><div class="f"><label>Club</label><input id="ac" value="${esc(o.club)}"></div>
   <div class="f"><label>Catégorie</label><select id="at" onchange="majAuto()"><option value=""></option>${CATS.map(x=>`<option ${o.cat===x?'selected':''}>${x}</option>`).join('')}</select>${o.catNote?`<div class="muted">Ancienne saisie : ${esc(o.catNote)}</div>`:''}</div>
   <div class="f"><label>Arme</label><select id="aa" onchange="majAuto()"><option value=""></option>${Object.entries(ARMES).map(([k,v])=>`<option value="${k}" ${o.arme===k?'selected':''}>${v} (${k})</option>`).join('')}</select></div>
   <div class="f"><label>Piquet en 3D</label><select id="ap3"><option value="" id="auto3">Auto (règlement)${r3?' : '+r3[0]:''}</option>${PIQUETS.map(x=>`<option ${o.p3D===x?'selected':''}>${x}</option>`).join('')}</select></div>
-  <div class="f"><label>Tranche d'âge UFOLEP (Safari)</label><select id="au"><option value=""></option>${Object.entries(AGES_U).map(([k,v])=>`<option value="${k}" ${o.ageU===k?'selected':''}>${v} → piquet ${AGE_PIQ[k].toLowerCase()}</option>`).join('')}</select></div>
-  <div class="f"><label>Piquet Safari forcé</label><select id="aps"><option value="">Auto (selon l'âge)</option>${PIQ_SAF.map(x=>`<option ${o.pS===x?'selected':''}>${x}</option>`).join('')}</select></div>
+  <div class="f"><label>Arme en campagne</label><select id="aac" onchange="majAuto()"><option value="" id="autoAC">Auto${ARME_C_AUTO[o.arme]?' : '+ARMES_C[ARME_C_AUTO[o.arme]]:' (à choisir)'}</option>${Object.entries(ARMES_C).map(([k,v])=>`<option value="${k}" ${o.armeC===k?'selected':''}>${v}</option>`).join('')}</select></div>
+  <div class="f"><label>Piquet en campagne FFTA</label><select id="apc"><option value="" id="autoC">Auto (règlement)${rC?' : '+rC:''}</option>${PIQ_CAMP.map(x=>`<option ${o.pC===x?'selected':''}>${x}</option>`).join('')}</select></div>
+  <div class="f"><label>Tranche d'âge UFOLEP (Safari, Campagne)</label><select id="au"><option value=""></option>${Object.entries(AGES_U).map(([k,v])=>`<option value="${k}" ${o.ageU===k?'selected':''}>${v} → piquet ${AGE_PIQ[k].toLowerCase()}</option>`).join('')}</select></div>
+  <div class="f"><label>Piquet UFOLEP forcé</label><select id="aps"><option value="">Auto (selon l'âge)</option>${PIQ_SAF.map(x=>`<option ${o.pS===x?'selected':''}>${x}</option>`).join('')}</select></div>
   <div class="f"><label>Piquets en Nature (1re / 2e flèche)</label><select id="apn"><option value="" id="autoN">Auto (règlement)${rN?' : '+rN.join(' / '):''}</option>${['Rouge/Bleu','Blanc/Blanc','Rose/Rose'].map(x=>`<option ${o.pN===x?'selected':''}>${x.replace('/',' / ')}</option>`).join('')}</select></div></div>
-  <div class="muted" id="autoInfo" style="margin-bottom:10px">${autoInfo(o.cat,o.arme)}</div>
+  <div class="muted" id="autoInfo" style="margin-bottom:10px">${autoInfo(o.cat,o.arme,o.armeC)}</div>
   <div class="row"><button class="btn p" onclick="saveArcher()">${ed?'Enregistrer':'Ajouter'}</button>${ed?`<button class="btn" onclick="go('archers')">Annuler</button><button class="btn d" onclick="ask('Supprimer ${esc(ed.nom)} ?','Supprimer',()=>{del('a','${ed.id}');go('archers')},true)">Supprimer</button>`:''}</div></div>
   ${ed?`<div class="card"><h3 style="margin-top:0">Espace archer</h3><p class="muted">Donnez un code à ${esc(ed.nom)} : il se connecte avec son compte (le même que pour le Carnet), saisit le code dans « Mes résultats » et voit ses tirs et son suivi, en lecture seule. Il ne voit ni les autres archers, ni vos notes. Les données restent séparées du Carnet.</p><div id="acces" class="muted">Chargement…</div></div>`:''}
-  ${as.length?as.map(a=>{const p3=piqArcher(a,'3D'),pn=piqArcher(a,'Nature'),ps=piqArcher(a,'Safari');return `<div class="item" onclick="go('archers',{aid:'${a.id}'})"><div class="grow"><b>${esc(a.nom)}</b><div class="muted">${esc([ARMES[a.arme],a.cat,a.club].filter(Boolean).join(' · '))}</div></div><div class="muted" style="text-align:right">3D ${chip(p3[0])}${esc(p3[0]||'?')}${a.p3D?' (forcé)':''}<br>Nature ${chip(pn[0])}${chip(pn[1])}${esc(pn[0]?pn.join('/'):'?')}${a.pN?' (forcé)':''}${ps[0]?`<br>Safari ${chip(ps[0])}${esc(ps[0])}${a.pS?' (forcé)':''}`:''}</div></div>`}).join(''):'<div class="empty">Aucun archer.</div>'}`}
-function autoInfo(cat,arme){if(!cat||!arme)return 'Choisissez la catégorie et l\'arme : le piquet est déduit du règlement. Forcez-le seulement en cas de surclassement.';
-  const r3=regPiquets('3D',cat,arme),rN=regPiquets('Nature',cat,arme);
-  if(!r3)return '⚠ En U11, seul l\'arc nu est ouvert d\'après le règlement.';
-  return `Règlement : 3D piquet ${r3[0]} · Nature ${rN[0]} puis ${rN[1]}.`}
-function majAuto(){const cat=$('#at').value,arme=$('#aa').value;const r3=regPiquets('3D',cat,arme),rN=regPiquets('Nature',cat,arme);
-  $('#auto3').textContent='Auto (règlement)'+(r3?' : '+r3[0]:'');$('#autoN').textContent='Auto (règlement)'+(rN?' : '+rN.join(' / '):'');$('#autoInfo').textContent=autoInfo(cat,arme)}
+  ${as.length?as.map(a=>{const p3=piqArcher(a,'3D'),pn=piqArcher(a,'Nature'),ps=piqArcher(a,'Safari'),pcp=piqArcher(a,'Campagne');return `<div class="item" onclick="go('archers',{aid:'${a.id}'})"><div class="grow"><b>${esc(a.nom)}</b><div class="muted">${esc([ARMES[a.arme],a.cat,a.club].filter(Boolean).join(' · '))}</div></div><div class="muted" style="text-align:right">3D ${chip(p3[0])}${esc(p3[0]||'?')}${a.p3D?' (forcé)':''}<br>Nature ${chip(pn[0])}${chip(pn[1])}${esc(pn[0]?pn.join('/'):'?')}${a.pN?' (forcé)':''}<br>Campagne ${chip(pcp[0])}${esc(pcp[0]||'?')}${a.pC?' (forcé)':''}${ps[0]?`<br>UFOLEP ${chip(ps[0])}${esc(ps[0])}${a.pS?' (forcé)':''}`:''}</div></div>`}).join(''):'<div class="empty">Aucun archer.</div>'}`}
+function autoInfo(cat,arme,armeC){if(!cat||!arme)return 'Choisissez la catégorie et l\'arme : le piquet est déduit du règlement. Forcez-le seulement en cas de surclassement.';
+  const r3=regPiquets('3D',cat,arme),rN=regPiquets('Nature',cat,arme);const ac=armeC||ARME_C_AUTO[arme]||'';const rC=regCampagne(cat,ac);
+  const camp=!ac?' · Campagne : choisissez l\'arme de campagne':!rC?' · Campagne : non ouvert pour cette catégorie et cette arme':` · Campagne piquet ${rC==='Orange'?'orange (sinon blanc)':rC.toLowerCase()}`;
+  if(!r3)return '⚠ En U11, seul l\'arc nu est ouvert en 3D et Nature d\'après le règlement.'+camp;
+  return `Règlement : 3D piquet ${r3[0].toLowerCase()} · Nature ${rN[0].toLowerCase()} puis ${rN[1].toLowerCase()}${camp}.`}
+function majAuto(){const cat=$('#at').value,arme=$('#aa').value,ac=$('#aac').value;const r3=regPiquets('3D',cat,arme),rN=regPiquets('Nature',cat,arme),rC=regCampagne(cat,ac||ARME_C_AUTO[arme]||'');
+  $('#auto3').textContent='Auto (règlement)'+(r3?' : '+r3[0]:'');$('#autoN').textContent='Auto (règlement)'+(rN?' : '+rN.join(' / '):'');
+  $('#autoAC').textContent='Auto'+(ARME_C_AUTO[arme]?' : '+ARMES_C[ARME_C_AUTO[arme]]:' (à choisir)');$('#autoC').textContent='Auto (règlement)'+(rC?' : '+rC:'');$('#autoInfo').textContent=autoInfo(cat,arme,ac)}
 function saveArcher(){const nom=$('#an').value.trim();if(!nom){toast('Nom obligatoire');return}
-  const a=V.aid?S.a[V.aid]:{id:newId()};Object.assign(a,{nom,club:$('#ac').value.trim(),arme:$('#aa').value,cat:$('#at').value,p3D:$('#ap3').value,pN:$('#apn').value.replace(/ /g,''),ageU:$('#au').value,pS:$('#aps').value});
+  const a=V.aid?S.a[V.aid]:{id:newId()};Object.assign(a,{nom,club:$('#ac').value.trim(),arme:$('#aa').value,cat:$('#at').value,p3D:$('#ap3').value,pN:$('#apn').value.replace(/ /g,''),ageU:$('#au').value,pS:$('#aps').value,armeC:$('#aac').value,pC:$('#apc').value});
   delete a.catNote;put('a',a);toast('Archer enregistré');go('archers')}
 
 // ---------- Suivi entraîneur ----------
@@ -544,23 +603,24 @@ function vSuivi(){const as=list('a').sort((a,b)=>a.nom.localeCompare(b.nom));if(
   const aid=V.aid&&S.a[V.aid]?V.aid:as[0].id;const type=V.type||'3D';
   let h=`<h2>${RO?'Mon suivi':'Suivi entraîneur'}</h2><div class="card row"><div class="grow"><label>Archer</label><select onchange="go(V.view,Object.assign({},V,{aid:this.value}))">${as.map(a=>`<option value="${a.id}" ${a.id===aid?'selected':''}>${esc(a.nom)}</option>`).join('')}</select></div>
   <div><label>Discipline</label><select onchange="go(V.view,Object.assign({},V,{type:this.value}))">${TYPES.map(t=>`<option value="${t}" ${type===t?'selected':''}>${typeLab(t)}</option>`).join('')}</select></div></div>`;
-  const saf=type==='Safari';const ss=list('s').filter(s=>s.archerIds.includes(aid)&&s.type===type&&S.p[s.parcoursId]).sort((a,b)=>a.date<b.date?1:-1);
+  const saf=dbl(type);const camp=isCamp(type);const bz=barZ(type);const ss=list('s').filter(s=>s.archerIds.includes(aid)&&s.type===type&&S.p[s.parcoursId]).sort((a,b)=>a.date<b.date?1:-1);
   if(!ss.length)return h+'<div class="empty">Aucun tir '+type+' pour cet archer.</div>';
   const cib=[],arr=[],est=[];let dep=0;
   ss.forEach(s=>{const p=S.p[s.parcoursId];dep+=nbDep(s,aid);vols(p).forEach((c,i)=>{const e=(s.scores[aid]||{})[i];if(!cibleDone(s.type,e))return;
     cib.push({s,p,c,i,e,pts:scoreCible(s.type,e)});
-    [0,1].forEach(k=>{const reel=distReelle(s,aid,i,k);const z=e.f[k];const v=arrowPts(type,k,z);
-      arr.push({k,z,v,reel,grp:c.grp,vital:type==='3D'?(z>=0&&z<=2):z==='T'});
+    KS(type).forEach(k=>{const reel=distReelle(s,aid,i,k);const z=e.f[k];const v=arrowPts(type,k,z);
+      arr.push({k,z,v,reel,grp:c.grp,vital:type==='3D'?(z>=0&&z<=2):camp?(z>=0&&z<=1):z==='T'});
       const es=k?e.est2:e.est;if(reel!=null&&es!=null&&(type==='Nature'||k===0))est.push({est:es,reel})})})});
   const n=cib.length;const tot=sum(cib.map(r=>r.pts));const zero=cib.filter(r=>r.pts===0);
   const ecAbs=est.length?sum(est.map(r=>Math.abs(r.est-r.reel)))/est.length:null;const ecSig=est.length?sum(est.map(r=>r.est-r.reel))/est.length:null;
-  h+=`<div class="kpis"><div class="kpi"><b>${ss.length}</b><span>parcours tirés</span></div><div class="kpi"><b>${n?(tot/n).toFixed(1):'–'}</b><span>points moyens / ${saf?'volée':'cible'} (max ${type==='3D'?2*S.settings.bareme3D[0]:saf?2*S.settings.safari[0]:S.settings.natureF1[0]+S.settings.natureF2[0]})</span></div>
+  h+=`<div class="kpis"><div class="kpi"><b>${ss.length}</b><span>parcours tirés</span></div><div class="kpi"><b>${n?(tot/n).toFixed(1):'–'}</b><span>points moyens / ${saf?'volée':'cible'} (max ${bz?nbF(type)*bz[0]:saf?2*S.settings.safari[0]:S.settings.natureF1[0]+S.settings.natureF2[0]})</span></div>
   <div class="kpi"><b>${pc(n-zero.length,n)}</b><span>cibles touchées</span></div>
-  ${saf?'':`<div class="kpi"><b>${ecAbs!=null?ecAbs.toFixed(1)+' m':'–'}</b><span>écart moyen d'estimation</span></div>
+  ${UFO(type)?'':`<div class="kpi"><b>${ecAbs!=null?ecAbs.toFixed(1)+' m':'–'}</b><span>écart moyen d'estimation</span></div>
   <div class="kpi"><b>${ecSig!=null?(ecSig>0?'+':'')+ecSig.toFixed(1)+' m':'–'}</b><span>${ecSig==null?'tendance':ecSig>0.5?'a tendance à surestimer':ecSig<-0.5?'a tendance à sous-estimer':'estimation équilibrée'}</span></div>`}
   ${RO?'':`<div class="kpi"><b>${dep}</b><span>dépassement(s) de temps</span></div>`}</div>`;
   h+='<div class="card"><h3 style="margin-top:0">Répartition des impacts</h3>';
-  if(type==='3D'){const B=S.settings.bareme3D;const ta=arr.length;B.forEach((v,i)=>{const c=arr.filter(a=>a.z===i).length;h+=bar('Zone '+v,c,ta,c+' ('+pc(c,ta)+')')});const m=arr.filter(a=>a.z===-1).length;h+=bar('Ratées',m,ta,m+' ('+pc(m,ta)+')','r')}
+  if(bz){const B=bz;const ta=arr.length;B.forEach((v,i)=>{const c=arr.filter(a=>a.z===i).length;h+=bar('Zone '+v,c,ta,c+' ('+pc(c,ta)+')')});const m=arr.filter(a=>a.z===-1).length;h+=bar('Ratées',m,ta,m+' ('+pc(m,ta)+')','r');
+    if(camp)h+='<div class="fl" style="margin-top:12px">Par taille de blason</div><div class="tbl"><table><tr><th>Blason</th><th>Flèches</th><th>Pts / flèche</th><th>Zones '+B[0]+'-'+B[1]+'</th></tr>'+BLASONS.map(g=>{const A=arr.filter(a=>a.grp===g);return A.length?`<tr><td>${g} cm</td><td>${A.length}</td><td><b>${(sum(A.map(a=>a.v))/A.length).toFixed(2)}</b></td><td>${pc(A.filter(a=>a.vital).length,A.length)}</td></tr>`:''}).join('')+'</table></div>'}
   else if(saf){const t=S.settings.safari;const ta=arr.length;const c=z=>arr.filter(a=>a.z===z).length;
     h+=bar('Centrale ('+t[0]+')',c('T'),ta,c('T')+' ('+pc(c('T'),ta)+')')+bar('Médiane ('+t[1]+')',c('B'),ta,c('B')+' ('+pc(c('B'),ta)+')','o')+bar('0',c('M'),ta,c('M')+' ('+pc(c('M'),ta)+')','r');
     h+='<div class="fl" style="margin-top:12px">Par type de gibier</div><div class="tbl"><table><tr><th>Gibier</th><th>Flèches</th><th>Pts / flèche</th><th>Zone centrale</th></tr>'+['G','M','P','A'].map(g=>{const A=arr.filter(a=>a.grp===g);return A.length?`<tr><td>${GIB[g]}</td><td>${A.length}</td><td><b>${(sum(A.map(a=>a.v))/A.length).toFixed(1)}</b></td><td>${pc(A.filter(a=>a.z==='T').length,A.length)}</td></tr>`:''}).join('')+'</table></div>'}
@@ -570,7 +630,7 @@ function vSuivi(){const as=list('a').sort((a,b)=>a.nom.localeCompare(b.nom));if(
   const parB={};arr.forEach(a=>{if(a.reel==null)return;const k=bande(a.reel);const o=parB[k]=parB[k]||{n:0,pts:0,vit:0,ne:0,ec:0,sig:0};o.n++;o.pts+=a.v;if(a.vital)o.vit++});
   est.forEach(r=>{const o=parB[bande(r.reel)];if(!o)return;o.ne++;o.ec+=Math.abs(r.est-r.reel);o.sig+=r.est-r.reel});
   const keys=BANDES.map(b=>bande(b[0])).filter(k=>parB[k]);
-  if(!saf)h+=`<div class="card"><h3 style="margin-top:0">Par distance réelle</h3>${keys.length?`<div class="tbl"><table><tr><th>Distance</th><th>Flèches</th><th>Pts / flèche</th><th>${type==='3D'?'Zone vitale (11-10-8)':saf?'Zone centrale':'Zone tué'}</th><th>Écart estim.</th><th>Tendance</th></tr>${keys.map(k=>{const o=parB[k];const sg=o.ne?o.sig/o.ne:null;return `<tr><td>${k}</td><td>${o.n}</td><td><b>${(o.pts/o.n).toFixed(1)}</b></td><td>${pc(o.vit,o.n)}</td><td>${o.ne?(o.ec/o.ne).toFixed(1)+' m':'–'}</td><td>${sg==null?'–':(sg>0?'+':'')+sg.toFixed(1)+' m'}</td></tr>`}).join('')}</table></div>`:'<div class="muted">Renseignez les distances réelles des cibles pour voir cette analyse.</div>'}</div>`;
+  if(!UFO(type))h+=`<div class="card"><h3 style="margin-top:0">Par distance réelle</h3>${keys.length?`<div class="tbl"><table><tr><th>Distance</th><th>Flèches</th><th>Pts / flèche</th><th>${type==='3D'?'Zone vitale (11-10-8)':camp?'Zones '+bz[0]+'-'+bz[1]:saf?'Zone centrale':'Zone tué'}</th><th>Écart estim.</th><th>Tendance</th></tr>${keys.map(k=>{const o=parB[k];const sg=o.ne?o.sig/o.ne:null;return `<tr><td>${k}</td><td>${o.n}</td><td><b>${(o.pts/o.n).toFixed(1)}</b></td><td>${pc(o.vit,o.n)}</td><td>${o.ne?(o.ec/o.ne).toFixed(1)+' m':'–'}</td><td>${sg==null?'–':(sg>0?'+':'')+sg.toFixed(1)+' m'}</td></tr>`}).join('')}</table></div>`:'<div class="muted">Renseignez les distances réelles des cibles pour voir cette analyse.</div>'}</div>`;
   h+=`<div class="card"><h3 style="margin-top:0">Cibles à zéro (${zero.length})</h3>${zero.length?`<div class="tbl"><table><tr><th>Date</th><th>Parcours</th><th>Cible</th><th>Réel</th><th>Estimé</th></tr>${zero.slice(0,40).map(r=>{const re=distReelle(r.s,aid,r.i,0);return `<tr><td>${fdate(r.s.date)}</td><td>${esc(r.p.nom)}</td><td>${r.i+1} ${esc(r.c.animal||'')}</td><td>${re??'–'}</td><td>${r.e.est??'–'}</td></tr>`}).join('')}</table></div>`:'<div class="muted">Aucune 👏</div>'}</div>`;
   h+=`<div class="card"><h3 style="margin-top:0">Progression par parcours</h3>`;const mx=Math.max(...ss.map(s=>totalArcher(s,aid)),1);
   ss.slice(0,15).forEach(s=>{const t=totalArcher(s,aid);const d=departage(s,aid);const nb=(S.p[s.parcoursId].cibles||[]).length;h+=bar(fdate(s.date),t,mx,RO?`${t} pts`:`${t} pts · ${d.v[0]}:${d.n[0]} ${d.v[1]}:${d.n[1]}`)});
@@ -637,9 +697,9 @@ function vATirer(){const L=curLink();if(!L)return `<h2>Tirer</h2><div class="emp
   const cat=(L.catalogue||[]).filter(p=>p&&p.id&&!p.deleted);const fiche=L.archer||{};
   if(!cat.length)return `<h2>Nouveau tir</h2>${choixLien()}<div class="empty">Votre entraîneur n'a pas encore créé de parcours.<br>Dès qu'il en aura créé un, vous pourrez le choisir ici.</div>`;
   return `<h2>Nouveau tir</h2>${choixLien()}<div class="card">
-  <div class="grid2"><div class="f"><label>Parcours</label><select id="ap">${cat.map(p=>`<option value="${p.id}">${esc(p.nom)} — ${typeLab(p.type)}, ${vols(p).length} ${p.type==='Safari'?'volées':'cibles'}</option>`).join('')}</select></div>
+  <div class="grid2"><div class="f"><label>Parcours</label><select id="ap">${cat.map(p=>`<option value="${p.id}">${esc(p.nom)} — ${typeLab(p.type)}, ${vols(p).length} ${dbl(p.type)?'volées':'cibles'}</option>`).join('')}</select></div>
   <div class="f"><label>Date</label><input type="date" id="ad" value="${today()}"></div></div>
-  <div class="muted" style="margin-bottom:10px">Votre piquet : 3D ${esc(piqTxt(piqArcher(fiche,'3D'),'3D'))} · Nature ${esc(piqTxt(piqArcher(fiche,'Nature'),'Nature'))} · Safari ${esc(piqTxt(piqArcher(fiche,'Safari'),'Safari'))}. Les distances réelles apparaissent une fois le tir terminé et reçu par votre entraîneur.</div>
+  <div class="muted" style="margin-bottom:10px">Votre piquet : ${TYPES.map(t=>typeLab(t)+' '+esc(piqTxt(piqArcher(fiche,t),t))).join(' · ')}. Les distances réelles des cibles inconnues apparaissent une fois le tir terminé et reçu par votre entraîneur.</div>
   <button class="btn p big" style="width:100%" onclick="aDemarrer()">Commencer ▶</button></div>`}
 function aDemarrer(){const L=curLink();if(!L)return;const aid=L.archer_key.slice(2);const pid=$('#ap').value;let p;
   const src=(L.catalogue||[]).find(x=>x.id===pid);if(!src){toast('Choisissez un parcours');return}
@@ -654,8 +714,8 @@ function vARegles(){const L=curLink();const f=(L&&L.archer)||null;
     ${pq&&pq[0]?`<div class="monpiq">Votre piquet : ${chip(pq[0])}${pq[1]&&pq[1]!==pq[0]?chip(pq[1]):''}<b>${esc(piqTxt(pq,t))}</b></div>`:''}
     ${regle(R.items)}</div>`}).join('')}
 function vACompte(){const L=MOI||[];let h=`<h2>Mon compte</h2><div class="card"><p>Connecté : <b>${esc(USER&&USER.email||'')}</b></p><div class="row"><button class="btn" onclick="sync(true);loadMoi()">Actualiser</button><button class="btn" onclick="logout()">Se déconnecter</button></div></div>`;
-  h+=L.map(x=>{const f=x.archer||{};return `<div class="card"><h3 style="margin-top:0">Ma fiche : ${esc(f.nom||x.archer_nom||'')}</h3><div class="muted">${esc([ARMES[f.arme],f.cat,AGES_U[f.ageU]].filter(Boolean).join(' · ')||'Catégorie et arme à renseigner par votre entraîneur')}</div>
-    <div style="margin-top:8px">3D : ${chip(piqArcher(f,'3D')[0])}${esc(piqTxt(piqArcher(f,'3D'),'3D'))}<br>Nature : ${esc(piqTxt(piqArcher(f,'Nature'),'Nature'))}<br>Safari : ${esc(piqTxt(piqArcher(f,'Safari'),'Safari'))}</div></div>`}).join('');
+  h+=L.map(x=>{const f=x.archer||{};return `<div class="card"><h3 style="margin-top:0">Ma fiche : ${esc(f.nom||x.archer_nom||'')}</h3><div class="muted">${esc([ARMES[f.arme],armeCamp(f)&&armeCamp(f)!==({BB:'BB',AD:'AD'})[f.arme]?'campagne : '+ARMES_C[armeCamp(f)]:'',f.cat,AGES_U[f.ageU]].filter(Boolean).join(' · ')||'Catégorie et arme à renseigner par votre entraîneur')}</div>
+    <div style="margin-top:8px">${TYPES.map(t=>{const pq=piqArcher(f,t);return `${typeLab(t)} : ${chip(pq[0])}${pq[1]&&pq[1]!==pq[0]?chip(pq[1]):''}${esc(piqTxt(pq,t))}`}).join('<br>')}</div></div>`}).join('');
   h+=`<div class="card"><h3 style="margin-top:0">${L.length?'Relier une autre fiche':'Relier mon compte'}</h3><p class="muted">Saisissez le code donné par votre entraîneur.</p><div class="row"><input id="mcode" placeholder="ex. K7M2QX" style="max-width:200px;text-transform:uppercase"><button class="btn p" onclick="utiliserCode()">Valider</button></div></div>`;
   return h}
 
@@ -663,6 +723,8 @@ function vACompte(){const L=MOI||[];let h=`<h2>Mon compte</h2><div class="card">
 const REGLES={
   '3D':{cls:'d3',src:'Règlement FFTA · août 2026',items:['24 cibles (18 en équipe ou double mixte), 2 flèches comptées par cible','Zones : 11 / 10 / 8 / 5, 0 hors zone','90 s pour les 2 flèches ; 1 dépassement toléré par parcours, ensuite la meilleure flèche est supprimée','Piquets : rouge 10–45 m, bleu 5–30 m, blanc 5–25 m, rose 5–20 m ; le rouge 0 à 15 m derrière le bleu','Distances inconnues : l\'archer les estime','Égalité : nombre de 11, puis de 10']},
   Nature:{cls:'dn',src:'Règlement FFTA · août 2026',items:['21 cibles, 2 flèches toujours tirées et comptées','1re flèche : 20 (tué) / 15 (blessé) ; 2e flèche : 15 / 10 ; max 35 par cible, 735 au total','Adultes : 1re flèche du piquet rouge, 2e du bleu ; U13/U15 blanc ; U11 rose','45 s ; 1er dépassement = avertissement, ensuite la ou les flèches hors délai sont annulées','Distances inconnues : l\'archer les estime','Égalité : nombre de 20, puis de 15']},
+  Campagne:{cls:'dc',src:'Règlement FFTA · août 2026',items:['12 à 24 cibles (multiple de 4), 3 flèches par cible ; en compétition classée : 12 cibles inconnues + 12 connues','Blasons de 20, 40, 60 et 80 cm (3 de chaque par module de 12) ; 20 cm : 1 flèche par spot','Zones : 6 / 5 / 4 / 3 / 2 / 1 ; max 18 par cible, 432 sur 24','180 s par cible ; 1er dépassement = avertissement, ensuite la meilleure flèche de la volée est perdue','Piquets selon la catégorie et l\'arme (classique, nu, poulies, droit) : rouge, bleu, blanc, orange (U13, U15 arc nu et droit), rose (U11 classique)','Cibles inconnues sur 12 cibles : cumul rouge 300–330 m, bleu 220–244 m, blanc 192–212 m','Égalité : nombre de 6, puis de 5']},
+  CampagneU:{cls:'dcu',src:'Règlement d\'arbitrage UFOLEP · 2015',items:['24 buttes, ou 12 buttes tirées 2 fois ; distances connues','3 flèches par butte : 5 / 4 / 3 / 2 / 1 (cordons à l\'avantage) ; max 360','Blasons de 20, 40, 60 et 80 cm','Piquets : vert jusqu\'à 12 ans, bleu 13-14 ans, rouge 15-16 ans, jaune adultes','3 min par volée ; pelotons de 6 archers maximum','Égalité : nombre de 5, puis de 4 (choix par défaut, non précisé dans le règlement)']},
   Safari:{cls:'ds',src:'Règlement d\'arbitrage UFOLEP · 2015',items:['24 buttes, ou 12 buttes tirées 2 fois ; distances connues','2 flèches comptées : 20 (centrale) / 15 (médiane) / 0 ; max 40 par butte, 960 au total','Piquets : vert jusqu\'à 12 ans, bleu 13-14 ans, rouge 15-16 ans, jaune adultes','2 min par volée','Égalité : nombre de 20, puis de 15 (choix par défaut, non précisé dans le règlement)']}};
 const regle=(items)=>`<ul class="regle">${items.map(x=>`<li>${x}</li>`).join('')}</ul>`;
 function vReglages(){const st=S.settings;
@@ -684,11 +746,23 @@ function vReglages(){const st=S.settings;
   <h3>Rappel du règlement</h3>${regle(REGLES['Nature'].items)}
   <button class="btn" onclick="resetB('Nature')">Revenir au barème du règlement Nature</button></div>
 
+  <div class="card disc dc"><div class="disc-h">${badge('Campagne')}<span class="muted">${REGLES.Campagne.src}</span></div>
+  <h3>Barème</h3><div class="row">${st.campagne.map((v,i)=>num_('Zone '+(i+1),'campagne',i,70)).join('')}</div>
+  <h3>Temps</h3><div class="row">${chrono('chronoC')}</div>
+  <h3>Rappel du règlement</h3>${regle(REGLES.Campagne.items)}
+  <button class="btn" onclick="resetB('Campagne')">Revenir au barème du règlement Campagne FFTA</button></div>
+
   <div class="card disc ds"><div class="disc-h">${badge('Safari')}<span class="muted">Règlement d'arbitrage UFOLEP · 2015</span></div>
   <h3>Barème</h3><div class="row">${num_('Zone centrale','safari',0,130)}${num_('Zone médiane','safari',1,130)}</div>
   <h3>Temps</h3><div class="row">${chrono('chronoS')}</div>
   <h3>Rappel du règlement</h3>${regle(REGLES['Safari'].items)}
   <button class="btn" onclick="resetB('Safari')">Revenir au barème du règlement Safari</button></div>
+
+  <div class="card disc dcu"><div class="disc-h">${badge('CampagneU')}<span class="muted">${REGLES.CampagneU.src}</span></div>
+  <h3>Barème</h3><div class="row">${st.campagneU.map((v,i)=>num_('Zone '+(i+1),'campagneU',i,70)).join('')}</div>
+  <h3>Temps</h3><div class="row">${chrono('chronoCU')}</div>
+  <h3>Rappel du règlement</h3>${regle(REGLES.CampagneU.items)}
+  <button class="btn" onclick="resetB('CampagneU')">Revenir au barème du règlement Campagne UFOLEP</button></div>
 
   <div class="card"><h3 style="margin-top:0">Compte et synchronisation</h3>
   ${!SB?`<div class="warn">Supabase n'est pas configuré (fichier config.js) : les données restent sur cet appareil.</div>`:USER?`<p>Connecté : <b>${esc(USER.email||'')}</b></p><div class="row"><button class="btn p" onclick="sync(true)">Synchroniser maintenant</button><button class="btn" onclick="logout()">Se déconnecter</button><span class="muted">${Object.keys(S.dirty).length} élément(s) en attente</span></div>`:`<p class="muted">Connectez-vous avec le même compte que le Carnet de l'entraîneur.</p><div class="grid2"><div class="f"><label>E-mail</label><input id="lem" type="email" autocomplete="username"></div><div class="f"><label>Mot de passe</label><input id="lpw" type="password" autocomplete="current-password"></div></div><button class="btn p" onclick="login()">Se connecter</button>`}
@@ -697,9 +771,9 @@ function vReglages(){const st=S.settings;
   <button class="btn" onclick="exportJ()">Copier toutes les données</button>
   <div class="f" style="margin-top:10px"><label>Coller des données à importer (fusion, les plus récentes gagnent)</label><textarea id="imp"></textarea></div><button class="btn" onclick="importJ()">Importer</button></div>`}
 function setB(k,i,v){const n=num(v);if(n==null)return;S.settings[k][i]=n;putSettings();toast('Barème mis à jour')}
-function resetB(t){const d=blankSettings();const k={'3D':{bareme3D:d.bareme3D,chrono3D:d.chrono3D},Nature:{natureF1:d.natureF1,natureF2:d.natureF2,chronoN:d.chronoN},Safari:{safari:d.safari,chronoS:d.chronoS}}[t];Object.assign(S.settings,k);putSettings();render();toast('Règlement '+typeLab(t)+' rétabli')}
+function resetB(t){const d=blankSettings();const k={'3D':{bareme3D:d.bareme3D,chrono3D:d.chrono3D},Nature:{natureF1:d.natureF1,natureF2:d.natureF2,chronoN:d.chronoN},Safari:{safari:d.safari,chronoS:d.chronoS},Campagne:{campagne:d.campagne,chronoC:d.chronoC},CampagneU:{campagneU:d.campagneU,chronoCU:d.chronoCU}}[t];Object.assign(S.settings,k);putSettings();render();toast('Règlement '+typeLab(t)+' rétabli')}
 function setC(k,v){const n=parseInt(v);if(!n||n<5)return;S.settings[k]=n;putSettings()}
-function exportJ(){const d=JSON.stringify({app:'parcours-3d-nature',version:'0.5',export:new Date().toISOString(),parcours:S.p,archers:S.a,sessions:S.s,settings:S.settings});
+function exportJ(){const d=JSON.stringify({app:'parcours-3d-nature',version:'0.6',export:new Date().toISOString(),parcours:S.p,archers:S.a,sessions:S.s,settings:S.settings});
   try{navigator.clipboard.writeText(d).then(()=>toast('Données copiées'),()=>{$('#imp').value=d;toast('Copiez le texte affiché')})}catch(e){$('#imp').value=d;toast('Copiez le texte affiché')}}
 function importJ(){let d;try{d=JSON.parse($('#imp').value)}catch(e){toast('Texte illisible');return}let n=0;
   for(const[k,src]of[['p',d.parcours],['a',d.archers],['s',d.sessions]]){for(const o of Object.values(src||{})){const l=S[k][o.id];if(!l||(o.updatedAt||0)>(l.updatedAt||0)){S[k][o.id]=o;S.dirty[k+'-'+o.id]=1;n++}}}

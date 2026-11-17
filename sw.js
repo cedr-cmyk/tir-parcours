@@ -1,6 +1,6 @@
 // Tir Parcours – fonctionnement hors ligne.
 // À chaque mise à jour de l'appli, changez le numéro ci-dessous pour que les tablettes prennent la nouvelle version.
-const CACHE = 'tir-parcours-v0.5.2';
+const CACHE = 'tir-parcours-v0.6';
 const CORE = ['./', './index.html', './config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

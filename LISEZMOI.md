@@ -1,6 +1,6 @@
 # Tir Parcours
 
-Appli de saisie et de suivi des tirs de parcours : 3D et Nature (FFTA), Safari (UFOLEP).
+Appli de saisie et de suivi des tirs de parcours : 3D, Nature et Campagne (FFTA), Safari et Campagne (UFOLEP).
 Elle fonctionne sans réseau sur le parcours, puis envoie les données dans Supabase dès que le réseau revient.
 
 ## Contenu du dossier
@@ -49,6 +49,9 @@ Elle fonctionne sans réseau sur le parcours, puis envoie les données dans Supa
 1. Remplacer `index.html` (et les autres fichiers modifiés) dans le dépôt GitHub.
 2. Dans `sw.js`, changer le numéro de `CACHE` (ex. `tir-parcours-v0.3` → `tir-parcours-v0.4`).
 3. Sur la tablette, ouvrir l'appli avec du réseau : la nouvelle version est prise au 2e lancement.
+
+## Mise à jour v0.6 (Campagne)
+Relancer `supabase.sql` une fois dans Supabase > SQL Editor : la liste des parcours envoyée aux archers garde alors les distances des cibles **connues** de campagne.
 
 ## Rôles (v0.5) : entraîneur et archers
 - **Entraîneur** : appli complète. Seuls les comptes déclarés dans la table `parcours_entraineurs` l'ont.
