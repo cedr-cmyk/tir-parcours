@@ -85,3 +85,6 @@ Toutes les données de Tir Parcours restent dans ses propres tables (`parcours_i
 - Ouvrir l'appli une première fois **avec du réseau** sur chaque tablette, pour qu'elle se mette en mémoire.
 - Le badge en haut à droite indique l'état : « en attente » = données gardées sur la tablette, envoyées au retour du réseau.
 - Pour l'instant, chaque compte ne voit que ses propres données (pas encore d'espace archer).
+
+## Droits
+© 2026 Dumoulin Consulting – Tous droits réservés. Le code est consultable mais sa réutilisation est interdite sans accord écrit (voir le fichier `LICENSE`).
